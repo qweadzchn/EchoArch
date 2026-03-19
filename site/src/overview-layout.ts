@@ -1,104 +1,196 @@
+export type HotspotPoint = {
+  x: number
+  y: number
+}
+
 export type HotspotLayout = {
   x: number
   y: number
   width: number
   height: number
+  points: HotspotPoint[]
 }
+
+type RelativePoint = readonly [number, number]
 
 export const OVERVIEW_IMAGE_SIZE = {
   width: 1830,
   height: 1280,
 }
 
+function defineLayout(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  relativePoints: RelativePoint[],
+): HotspotLayout {
+  return {
+    x,
+    y,
+    width,
+    height,
+    points: relativePoints.map(([pointX, pointY]) => ({
+      x: x + pointX * width,
+      y: y + pointY * height,
+    })),
+  }
+}
+
 export const overviewLayoutBySpotId: Record<string, HotspotLayout> = {
-  'weiyuan-temple': {
-    x: 520,
-    y: 440,
-    width: 134,
-    height: 154,
-  },
-  'yongjin-pavilion': {
-    x: 675,
-    y: 495,
-    width: 105,
-    height: 72,
-  },
-  'qinghui-pavilion': {
-    x: 429,
-    y: 683,
-    width: 332,
-    height: 244,
-  },
-  'south-hall': {
-    x: 955,
-    y: 887,
-    width: 862,
-    height: 401,
-  },
-  'qianlong-palace': {
-    x: 1521,
-    y: 479,
-    width: 302,
-    height: 353,
-  },
-  'fangyu-pavilion': {
-    x: 1180,
-    y: 661,
-    width: 102,
-    height: 84,
-  },
-  'huxin-pavilion': {
-    x: 845,
-    y: 617,
-    width: 127,
-    height: 126,
-  },
-  'diaoyu-pavilion': {
-    x: 826,
-    y: 905,
-    width: 91,
-    height: 81,
-  },
-  'feishi-stone': {
-    x: 845,
-    y: 984,
-    width: 56,
-    height: 42,
-  },
-  'yuejin-pavilion': {
-    x: 334,
-    y: 1042,
-    width: 286,
-    height: 152,
-  },
-  'boat-house': {
-    x: 145,
-    y: 838,
-    width: 253,
-    height: 112,
-  },
-  'shao-shrine': {
-    x: 9,
-    y: 576,
-    width: 317,
-    height: 113,
-  },
-  anlewo: {
-    x: 296,
-    y: 453,
-    width: 208,
-    height: 70,
-  },
-  'stele-corridor': {
-    x: 1066,
-    y: 558,
-    width: 152,
-    height: 72,
-  },
-  'efu-tomb': {
-    x: 1210,
-    y: 454,
-    width: 130,
-    height: 78,
-  },
+  'weiyuan-temple': defineLayout(520, 440, 134, 154, [
+    [0.08, 0.68],
+    [0.18, 0.28],
+    [0.42, 0.08],
+    [0.76, 0.18],
+    [0.92, 0.58],
+    [0.82, 0.94],
+    [0.28, 0.96],
+    [0.1, 0.84],
+  ]),
+  'yongjin-pavilion': defineLayout(675, 495, 105, 72, [
+    [0.1, 0.72],
+    [0.18, 0.34],
+    [0.46, 0.1],
+    [0.8, 0.28],
+    [0.9, 0.62],
+    [0.74, 0.9],
+    [0.28, 0.92],
+  ]),
+  'qinghui-pavilion': defineLayout(429, 683, 332, 244, [
+    [0.04, 0.78],
+    [0.12, 0.44],
+    [0.3, 0.16],
+    [0.58, 0.04],
+    [0.86, 0.22],
+    [0.95, 0.58],
+    [0.84, 0.9],
+    [0.4, 0.98],
+    [0.1, 0.88],
+  ]),
+  'south-hall': defineLayout(955, 887, 862, 401, [
+    [0.02, 0.74],
+    [0.08, 0.46],
+    [0.16, 0.32],
+    [0.28, 0.24],
+    [0.46, 0.18],
+    [0.72, 0.12],
+    [0.9, 0.18],
+    [0.98, 0.42],
+    [0.96, 0.88],
+    [0.74, 0.98],
+    [0.34, 0.92],
+    [0.08, 0.86],
+  ]),
+  'qianlong-palace': defineLayout(1521, 479, 302, 353, [
+    [0.08, 0.78],
+    [0.16, 0.36],
+    [0.42, 0.08],
+    [0.74, 0.14],
+    [0.92, 0.42],
+    [0.9, 0.82],
+    [0.64, 0.96],
+    [0.24, 0.92],
+  ]),
+  'fangyu-pavilion': defineLayout(1180, 661, 102, 84, [
+    [0.1, 0.74],
+    [0.16, 0.34],
+    [0.5, 0.08],
+    [0.82, 0.32],
+    [0.9, 0.7],
+    [0.64, 0.9],
+    [0.28, 0.92],
+  ]),
+  'huxin-pavilion': defineLayout(845, 617, 127, 126, [
+    [0.14, 0.76],
+    [0.2, 0.34],
+    [0.48, 0.1],
+    [0.8, 0.28],
+    [0.88, 0.7],
+    [0.68, 0.9],
+    [0.3, 0.92],
+  ]),
+  'diaoyu-pavilion': defineLayout(826, 905, 91, 81, [
+    [0.16, 0.74],
+    [0.22, 0.38],
+    [0.48, 0.12],
+    [0.78, 0.28],
+    [0.84, 0.66],
+    [0.68, 0.88],
+    [0.28, 0.9],
+  ]),
+  'feishi-stone': defineLayout(845, 984, 56, 42, [
+    [0.1, 0.74],
+    [0.2, 0.3],
+    [0.42, 0.1],
+    [0.66, 0.22],
+    [0.84, 0.48],
+    [0.78, 0.88],
+    [0.4, 0.96],
+    [0.18, 0.86],
+  ]),
+  'yuejin-pavilion': defineLayout(334, 1042, 286, 152, [
+    [0.02, 0.74],
+    [0.1, 0.42],
+    [0.24, 0.28],
+    [0.46, 0.18],
+    [0.72, 0.16],
+    [0.96, 0.36],
+    [0.9, 0.72],
+    [0.7, 0.92],
+    [0.28, 0.94],
+    [0.08, 0.84],
+  ]),
+  'boat-house': defineLayout(145, 838, 253, 112, [
+    [0.04, 0.72],
+    [0.12, 0.42],
+    [0.34, 0.22],
+    [0.68, 0.18],
+    [0.94, 0.42],
+    [0.9, 0.82],
+    [0.58, 0.94],
+    [0.18, 0.9],
+  ]),
+  'shao-shrine': defineLayout(9, 576, 317, 113, [
+    [0.02, 0.72],
+    [0.12, 0.34],
+    [0.3, 0.14],
+    [0.6, 0.1],
+    [0.88, 0.28],
+    [0.98, 0.62],
+    [0.9, 0.86],
+    [0.52, 0.96],
+    [0.14, 0.9],
+  ]),
+  anlewo: defineLayout(296, 453, 208, 70, [
+    [0.04, 0.74],
+    [0.16, 0.28],
+    [0.4, 0.1],
+    [0.76, 0.16],
+    [0.94, 0.46],
+    [0.82, 0.86],
+    [0.34, 0.92],
+    [0.08, 0.84],
+  ]),
+  'stele-corridor': defineLayout(1066, 558, 152, 72, [
+    [0.02, 0.74],
+    [0.08, 0.36],
+    [0.18, 0.18],
+    [0.52, 0.08],
+    [0.86, 0.18],
+    [0.98, 0.52],
+    [0.92, 0.82],
+    [0.62, 0.94],
+    [0.18, 0.9],
+  ]),
+  'efu-tomb': defineLayout(1210, 454, 130, 78, [
+    [0.08, 0.78],
+    [0.18, 0.34],
+    [0.42, 0.1],
+    [0.72, 0.18],
+    [0.9, 0.46],
+    [0.84, 0.84],
+    [0.48, 0.96],
+    [0.18, 0.9],
+  ]),
 }

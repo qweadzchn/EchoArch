@@ -140,23 +140,45 @@ button {
   isolation: isolate;
 }
 
-.overview-stage__artboard {
+.overview-stage__viewport,
+.overview-stage__wash,
+.overview-stage__mist,
+.overview-stage__boot,
+.overview-stage__transition-veil {
   position: absolute;
+}
+
+.overview-stage__viewport {
+  overflow: visible;
+  transform-origin: 0 0;
+  transition:
+    transform 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 420ms ease;
+  will-change: transform, filter, opacity;
 }
 
 .overview-stage__image {
   width: 100%;
   height: 100%;
+  object-fit: cover;
+}
+
+.overview-stage__hotspots-layer {
+  position: absolute;
+  inset: 0;
 }
 
 .overview-stage__wash,
-.overview-stage__mist {
-  position: absolute;
+.overview-stage__mist,
+.overview-stage__boot,
+.overview-stage__transition-veil {
   inset: 0;
   pointer-events: none;
 }
 
 .overview-stage__wash {
+  z-index: 2;
   background:
     linear-gradient(180deg, rgba(18, 14, 10, 0.08) 0%, rgba(18, 14, 10, 0.28) 100%),
     radial-gradient(circle at 82% 14%, rgba(255, 223, 176, 0.22), transparent 24%),
@@ -165,8 +187,10 @@ button {
 }
 
 .overview-stage__mist {
+  z-index: 1;
   opacity: 0.54;
   transform: translateZ(0) scale(1.08);
+  transition: opacity 420ms ease;
 }
 
 .overview-stage__mist--left {
@@ -179,8 +203,69 @@ button {
   transform: translate(38%, 14%);
 }
 
+.overview-stage__boot {
+  z-index: 8;
+  display: grid;
+  place-content: center;
+  gap: 10px;
+  background:
+    radial-gradient(circle at 50% 36%, rgba(255, 224, 177, 0.12), transparent 24%),
+    linear-gradient(180deg, rgba(28, 18, 10, 0.82), rgba(28, 18, 10, 0.6));
+  color: rgba(255, 244, 224, 0.96);
+  letter-spacing: 0.14em;
+  text-align: center;
+  transition:
+    opacity 520ms ease,
+    visibility 520ms ease;
+}
+
+.overview-stage__boot span,
+.overview-stage__boot strong {
+  font-family: var(--font-serif);
+  font-weight: 600;
+}
+
+.overview-stage__boot span {
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.overview-stage__boot strong {
+  color: rgba(255, 228, 189, 0.78);
+  font-size: 0.88rem;
+}
+
+.overview-stage__transition-veil {
+  z-index: 5;
+  opacity: 0;
+  background:
+    radial-gradient(circle at center, transparent 24%, rgba(18, 12, 8, 0.16) 72%),
+    linear-gradient(180deg, rgba(18, 12, 8, 0.04), rgba(18, 12, 8, 0.36));
+  transition: opacity 560ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.overview-stage.is-ready .overview-stage__boot {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.overview-stage.is-transitioning .overview-stage__viewport {
+  filter: saturate(1.06) contrast(1.02) brightness(0.94);
+}
+
+.overview-stage.is-transitioning .overview-stage__inscription,
+.overview-stage.is-transitioning .overview-stage__trail,
+.overview-stage.is-transitioning .overview-stage__mist {
+  opacity: 0;
+  transform: translateY(-14px);
+}
+
+.overview-stage.is-transitioning .overview-stage__transition-veil {
+  opacity: 1;
+}
+
 .overview-stage__inscription {
   position: absolute;
+  z-index: 6;
   top: 34px;
   left: 34px;
   max-width: 320px;
@@ -192,6 +277,9 @@ button {
   color: #fff6ea;
   backdrop-filter: blur(6px);
   box-shadow: 0 14px 30px rgba(16, 11, 8, 0.12);
+  transition:
+    opacity 300ms ease,
+    transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .overview-stage__inscription span {
@@ -233,12 +321,16 @@ button {
 
 .overview-stage__trail {
   position: absolute;
+  z-index: 6;
   right: 34px;
   top: 34px;
   display: flex;
   flex-wrap: wrap;
   justify-content: end;
   gap: 10px;
+  transition:
+    opacity 300ms ease,
+    transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .overview-stage__trail span {
@@ -255,60 +347,50 @@ button {
 
 .overview-hotspot {
   position: absolute;
-  appearance: none;
-  border: none;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-  will-change: transform;
+  z-index: 4;
+  pointer-events: none;
+  will-change: opacity, transform;
 }
 
-.overview-hotspot__wash,
-.overview-hotspot__frame,
-.overview-hotspot__glow {
-  position: absolute;
-  inset: var(--frame-inset);
-  border-radius: 8px;
-  will-change: opacity, transform;
+.overview-hotspot__shape {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: auto;
+  cursor: pointer;
+  outline: none;
+}
+
+.overview-hotspot__shape polygon {
+  transition:
+    opacity 200ms ease,
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    fill 220ms ease,
+    stroke 220ms ease;
+  transform-box: fill-box;
+  transform-origin: center;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
 }
 
 .overview-hotspot__wash {
   opacity: 0;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 18%, transparent), transparent 74%),
-    radial-gradient(circle at center, color-mix(in srgb, var(--accent) 12%, transparent), transparent 72%);
-  transition:
-    opacity 180ms ease,
-    transform 240ms ease;
+  fill: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .overview-hotspot__frame {
   opacity: 0;
-  background:
-    linear-gradient(color-mix(in srgb, var(--accent) 72%, rgba(255, 248, 233, 0.95)), color-mix(in srgb, var(--accent) 72%, rgba(255, 248, 233, 0.95))) left top / 38px 2px no-repeat,
-    linear-gradient(color-mix(in srgb, var(--accent) 72%, rgba(255, 248, 233, 0.95)), color-mix(in srgb, var(--accent) 72%, rgba(255, 248, 233, 0.95))) left top / 2px 38px no-repeat,
-    linear-gradient(color-mix(in srgb, var(--accent) 72%, rgba(255, 248, 233, 0.95)), color-mix(in srgb, var(--accent) 72%, rgba(255, 248, 233, 0.95))) right top / 38px 2px no-repeat,
-    linear-gradient(color-mix(in srgb, var(--accent) 72%, rgba(255, 248, 233, 0.95)), color-mix(in srgb, var(--accent) 72%, rgba(255, 248, 233, 0.95))) right top / 2px 38px no-repeat,
-    linear-gradient(color-mix(in srgb, var(--accent) 72%, rgba(255, 248, 233, 0.95)), color-mix(in srgb, var(--accent) 72%, rgba(255, 248, 233, 0.95))) left bottom / 38px 2px no-repeat,
-    linear-gradient(color-mix(in srgb, var(--accent) 72%, rgba(255, 248, 233, 0.95)), color-mix(in srgb, var(--accent) 72%, rgba(255, 248, 233, 0.95))) left bottom / 2px 38px no-repeat,
-    linear-gradient(color-mix(in srgb, var(--accent) 72%, rgba(255, 248, 233, 0.95)), color-mix(in srgb, var(--accent) 72%, rgba(255, 248, 233, 0.95))) right bottom / 38px 2px no-repeat,
-    linear-gradient(color-mix(in srgb, var(--accent) 72%, rgba(255, 248, 233, 0.95)), color-mix(in srgb, var(--accent) 72%, rgba(255, 248, 233, 0.95))) right bottom / 2px 38px no-repeat;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 251, 242, 0.08),
-    0 14px 30px rgba(38, 26, 12, 0.1);
-  transition:
-    opacity 180ms ease,
-    transform 240ms ease;
+  fill: rgba(255, 250, 241, 0.04);
+  stroke: color-mix(in srgb, var(--accent) 76%, rgba(255, 248, 233, 0.96));
+  stroke-width: 2;
 }
 
 .overview-hotspot__glow {
-  inset: calc(var(--frame-inset) - 10px);
   opacity: 0;
-  border: 1px solid color-mix(in srgb, var(--accent) 34%, rgba(255, 247, 228, 0.92));
-  box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 24%, transparent);
-  transition:
-    opacity 200ms ease,
-    transform 280ms ease;
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 40%, rgba(255, 244, 214, 0.94));
+  stroke-width: 1;
+  filter: drop-shadow(0 0 14px color-mix(in srgb, var(--accent) 26%, transparent));
 }
 
 .overview-hotspot__badge {
@@ -336,6 +418,7 @@ button {
     transform 220ms ease,
     box-shadow 220ms ease;
   will-change: transform;
+  pointer-events: none;
 }
 
 .overview-hotspot__name {
@@ -356,40 +439,47 @@ button {
     opacity 180ms ease,
     transform 240ms ease;
   will-change: opacity, transform;
+  pointer-events: none;
 }
 
-.overview-hotspot:hover .overview-hotspot__wash,
-.overview-hotspot:focus-visible .overview-hotspot__wash,
+.overview-hotspot__shape:focus-visible {
+  outline: none;
+}
+
 .overview-hotspot.is-hovered .overview-hotspot__wash {
-  opacity: 1;
-  transform: scale(1.01);
-}
-
-.overview-hotspot:hover .overview-hotspot__frame,
-.overview-hotspot:focus-visible .overview-hotspot__frame,
-.overview-hotspot.is-hovered .overview-hotspot__frame {
-  opacity: 1;
-  transform: translate3d(0, -2px, 0);
-}
-
-.overview-hotspot:hover .overview-hotspot__glow,
-.overview-hotspot:focus-visible .overview-hotspot__glow,
-.overview-hotspot.is-hovered .overview-hotspot__glow {
   opacity: 1;
   transform: scale(1.02);
 }
 
-.overview-hotspot:hover .overview-hotspot__name,
-.overview-hotspot:focus-visible .overview-hotspot__name,
+.overview-hotspot.is-hovered .overview-hotspot__frame {
+  opacity: 1;
+  transform: scale(1.015);
+}
+
+.overview-hotspot.is-hovered .overview-hotspot__glow {
+  opacity: 1;
+  transform: scale(1.04);
+}
+
 .overview-hotspot.is-hovered .overview-hotspot__name {
   opacity: 1;
   transform: translate3d(0, 0, 0);
 }
 
-.overview-hotspot:hover .overview-hotspot__badge,
-.overview-hotspot:focus-visible .overview-hotspot__badge,
 .overview-hotspot.is-hovered .overview-hotspot__badge {
   transform: translate3d(0, -2px, 0);
+}
+
+.overview-hotspot.is-selected .overview-hotspot__wash,
+.overview-hotspot.is-selected .overview-hotspot__frame,
+.overview-hotspot.is-selected .overview-hotspot__glow,
+.overview-hotspot.is-selected .overview-hotspot__name,
+.overview-hotspot.is-selected .overview-hotspot__badge {
+  opacity: 1;
+}
+
+.overview-hotspot.is-selected .overview-hotspot__badge {
+  transform: translate3d(0, -4px, 0) scale(1.03);
 }
 
 .overview-hotspot.is-visited .overview-hotspot__badge {
@@ -400,6 +490,7 @@ button {
 
 .overview-preview {
   position: absolute;
+  z-index: 7;
   overflow: hidden;
   border-radius: 28px;
   border: 1px solid rgba(255, 249, 240, 0.2);
@@ -458,6 +549,17 @@ button {
   padding: 24px;
   border-radius: 32px;
   box-shadow: 0 24px 54px rgba(43, 29, 14, 0.12);
+  content-visibility: auto;
+  contain-intrinsic-size: 780px;
+  transition:
+    opacity 260ms ease,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.journey-strip.is-muted {
+  opacity: 0;
+  transform: translateY(22px);
+  pointer-events: none;
 }
 
 .journey-strip__heading {

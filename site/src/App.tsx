@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from 'react'
 import { heritageSpots } from './data/heritage-data'
 import {
@@ -26,8 +27,22 @@ type DisplayFrame = {
   height: number
 }
 
+type HotspotGeometry = {
+  left: number
+  top: number
+  width: number
+  height: number
+  points: string
+  centerX: number
+  centerY: number
+  boxWidth: number
+  boxHeight: number
+}
+
 const HOTSPOT_HIT_PADDING_MIN = 14
 const HOTSPOT_HIT_PADDING_MAX = 26
+const HOME_TRANSITION_DURATION_MS = 560
+const OVERVIEW_IMAGE_SRC = '/landing/overview.jpg'
 
 const spotsWithLayout: SpotWithLayout[] = heritageSpots
   .map((spot) => {
@@ -113,14 +128,24 @@ function App() {
     readValidSpotIdFromHash(),
   )
   const [hoveredSpotId, setHoveredSpotId] = useState<string | null>(null)
+  const [transitionSpotId, setTransitionSpotId] = useState<string | null>(null)
   const [visitedSpotIds, setVisitedSpotIds] = useState<string[]>(() => {
     const initialSpotId = readValidSpotIdFromHash()
     return initialSpotId ? [initialSpotId] : []
   })
+  const transitionTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     function syncRouteFromHash() {
       const hashSpotId = readValidSpotIdFromHash()
+
+      if (transitionTimerRef.current !== null) {
+        window.clearTimeout(transitionTimerRef.current)
+        transitionTimerRef.current = null
+      }
+
+      setTransitionSpotId(null)
+      setHoveredSpotId(null)
       setCurrentSpotId(hashSpotId)
 
       if (hashSpotId) {
@@ -138,6 +163,14 @@ function App() {
   }, [])
 
   useEffect(() => {
+    return () => {
+      if (transitionTimerRef.current !== null) {
+        window.clearTimeout(transitionTimerRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [currentSpotId])
 
@@ -145,14 +178,42 @@ function App() {
     spotsWithLayout.find((spot) => spot.id === currentSpotId) ?? null
 
   function openSpot(spot: SpotWithLayout) {
-    startTransition(() => {
-      setCurrentSpotId(spot.id)
-      setHoveredSpotId(null)
-    })
+    if (transitionTimerRef.current !== null) {
+      window.clearTimeout(transitionTimerRef.current)
+      transitionTimerRef.current = null
+    }
 
     setVisitedSpotIds((current) =>
       current.includes(spot.id) ? current : [...current, spot.id],
     )
+
+    if (!currentSpotId) {
+      setTransitionSpotId(spot.id)
+      setHoveredSpotId(spot.id)
+
+      transitionTimerRef.current = window.setTimeout(() => {
+        transitionTimerRef.current = null
+
+        startTransition(() => {
+          setCurrentSpotId(spot.id)
+          setHoveredSpotId(null)
+          setTransitionSpotId(null)
+        })
+
+        const nextHash = `#/spot/${encodeURIComponent(spot.id)}`
+
+        if (window.location.hash !== nextHash) {
+          window.location.hash = nextHash
+        }
+      }, HOME_TRANSITION_DURATION_MS)
+
+      return
+    }
+
+    startTransition(() => {
+      setCurrentSpotId(spot.id)
+      setHoveredSpotId(null)
+    })
 
     const nextHash = `#/spot/${encodeURIComponent(spot.id)}`
 
@@ -162,9 +223,15 @@ function App() {
   }
 
   function goHome() {
+    if (transitionTimerRef.current !== null) {
+      window.clearTimeout(transitionTimerRef.current)
+      transitionTimerRef.current = null
+    }
+
     startTransition(() => {
       setCurrentSpotId(null)
       setHoveredSpotId(null)
+      setTransitionSpotId(null)
     })
 
     if (window.location.hash !== '#/' && window.location.hash !== '') {
@@ -178,12 +245,18 @@ function App() {
   return (
     <main className="app-shell">
       {currentSpot ? (
-        <DetailView key={currentSpot.id} onBack={goHome} onOpenSpot={openSpot} spot={currentSpot} />
+        <DetailView
+          key={currentSpot.id}
+          onBack={goHome}
+          onOpenSpot={openSpot}
+          spot={currentSpot}
+        />
       ) : (
         <HomeView
           hoveredSpotId={hoveredSpotId}
           onHoverSpot={setHoveredSpotId}
           onOpenSpot={openSpot}
+          transitionSpotId={transitionSpotId}
           visitedSpotIds={visitedSpotIds}
         />
       )}
@@ -195,6 +268,7 @@ type HomeViewProps = {
   hoveredSpotId: string | null
   onHoverSpot: (spotId: string | null) => void
   onOpenSpot: (spot: SpotWithLayout) => void
+  transitionSpotId: string | null
   visitedSpotIds: string[]
 }
 
@@ -202,12 +276,14 @@ function HomeView({
   hoveredSpotId,
   onHoverSpot,
   onOpenSpot,
+  transitionSpotId,
   visitedSpotIds,
 }: HomeViewProps) {
   const stageRef = useRef<HTMLDivElement | null>(null)
   const [displayFrame, setDisplayFrame] = useState<DisplayFrame>(() =>
     createDisplayFrame(1600, 980),
   )
+  const [isOverviewReady, setIsOverviewReady] = useState(false)
   const [previewSpotId, setPreviewSpotId] = useState<string>(
     spotsWithLayout[0]?.id ?? '',
   )
@@ -219,9 +295,23 @@ function HomeView({
       return
     }
 
+    let animationFrame = 0
+
     const updateFrame = () => {
-      const rect = node.getBoundingClientRect()
-      setDisplayFrame(createDisplayFrame(rect.width, rect.height))
+      window.cancelAnimationFrame(animationFrame)
+      animationFrame = window.requestAnimationFrame(() => {
+        const rect = node.getBoundingClientRect()
+        setDisplayFrame((current) => {
+          if (
+            Math.abs(current.stageWidth - rect.width) < 0.5 &&
+            Math.abs(current.stageHeight - rect.height) < 0.5
+          ) {
+            return current
+          }
+
+          return createDisplayFrame(rect.width, rect.height)
+        })
+      })
     }
 
     updateFrame()
@@ -236,17 +326,51 @@ function HomeView({
     return () => {
       resizeObserver.disconnect()
       window.removeEventListener('resize', updateFrame)
+      window.cancelAnimationFrame(animationFrame)
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const image = new Image()
+    let frame = 0
+
+    image.src = OVERVIEW_IMAGE_SRC
+
+    if (image.complete) {
+      frame = window.requestAnimationFrame(() => {
+        if (!cancelled) {
+          setIsOverviewReady(true)
+        }
+      })
+    } else {
+      image
+        .decode()
+        .catch(() => undefined)
+        .finally(() => {
+          if (!cancelled) {
+            setIsOverviewReady(true)
+          }
+        })
+    }
+
+    return () => {
+      cancelled = true
+      window.cancelAnimationFrame(frame)
     }
   }, [])
 
   const hoveredSpot =
     spotsWithLayout.find((spot) => spot.id === hoveredSpotId) ?? null
+  const transitionSpot =
+    spotsWithLayout.find((spot) => spot.id === transitionSpotId) ?? null
   const previewSpot =
     spotsWithLayout.find((spot) => spot.id === previewSpotId) ?? spotsWithLayout[0]
   const hotspotHitPadding = Math.max(
     HOTSPOT_HIT_PADDING_MIN,
     Math.min(displayFrame.width * 0.012, HOTSPOT_HIT_PADDING_MAX),
   )
+  const isTransitioning = transitionSpot !== null
 
   useEffect(() => {
     if (!hoveredSpotId) {
@@ -262,44 +386,50 @@ function HomeView({
     }
   }, [hoveredSpotId])
 
-  function getHotspotStyle(spot: SpotWithLayout) {
-    const left =
-      displayFrame.left +
-      (spot.layout.x / OVERVIEW_IMAGE_SIZE.width) * displayFrame.width
-    const top =
-      displayFrame.top +
-      (spot.layout.y / OVERVIEW_IMAGE_SIZE.height) * displayFrame.height
-    const width =
+  function getHotspotGeometry(spot: SpotWithLayout): HotspotGeometry {
+    const left = (spot.layout.x / OVERVIEW_IMAGE_SIZE.width) * displayFrame.width
+    const top = (spot.layout.y / OVERVIEW_IMAGE_SIZE.height) * displayFrame.height
+    const boxWidth =
       (spot.layout.width / OVERVIEW_IMAGE_SIZE.width) * displayFrame.width
-    const height =
+    const boxHeight =
       (spot.layout.height / OVERVIEW_IMAGE_SIZE.height) * displayFrame.height
+    const width = boxWidth + hotspotHitPadding * 2
+    const height = boxHeight + hotspotHitPadding * 2
+    const points = spot.layout.points
+      .map((point) => {
+        const pointX =
+          ((point.x - spot.layout.x) / spot.layout.width) * boxWidth +
+          hotspotHitPadding
+        const pointY =
+          ((point.y - spot.layout.y) / spot.layout.height) * boxHeight +
+          hotspotHitPadding
+
+        return `${pointX},${pointY}`
+      })
+      .join(' ')
 
     return {
       left: left - hotspotHitPadding,
       top: top - hotspotHitPadding,
-      width: width + hotspotHitPadding * 2,
-      height: height + hotspotHitPadding * 2,
-      '--accent': spot.accent,
-      '--frame-inset': `${hotspotHitPadding}px`,
-    } as CSSProperties
+      width,
+      height,
+      points,
+      centerX: left + boxWidth / 2,
+      centerY: top + boxHeight / 2,
+      boxWidth,
+      boxHeight,
+    }
   }
 
   function getPreviewStyle(spot: SpotWithLayout) {
-    const hotspotCenterX =
-      displayFrame.left +
-      ((spot.layout.x + spot.layout.width / 2) / OVERVIEW_IMAGE_SIZE.width) *
-        displayFrame.width
-    const hotspotCenterY =
-      displayFrame.top +
-      ((spot.layout.y + spot.layout.height / 2) / OVERVIEW_IMAGE_SIZE.height) *
-        displayFrame.height
+    const geometry = getHotspotGeometry(spot)
     const previewWidth = Math.min(360, displayFrame.stageWidth - 48)
     const previewHeight = 420
-    const preferLeft = hotspotCenterX > displayFrame.stageWidth * 0.56
+    const preferLeft = geometry.centerX + displayFrame.left > displayFrame.stageWidth * 0.56
     const rawLeft = preferLeft
-      ? hotspotCenterX - previewWidth - 38
-      : hotspotCenterX + 38
-    const rawTop = hotspotCenterY - previewHeight * 0.44
+      ? displayFrame.left + geometry.centerX - previewWidth - 38
+      : displayFrame.left + geometry.centerX + 38
+    const rawTop = displayFrame.top + geometry.centerY - previewHeight * 0.44
 
     return {
       left: Math.min(
@@ -315,75 +445,162 @@ function HomeView({
     } as CSSProperties
   }
 
+  function getViewportStyle() {
+    const style: CSSProperties = {
+      left: displayFrame.left,
+      top: displayFrame.top,
+      width: displayFrame.width,
+      height: displayFrame.height,
+    }
+
+    if (!transitionSpot) {
+      return style
+    }
+
+    const geometry = getHotspotGeometry(transitionSpot)
+    const areaRatio =
+      (geometry.boxWidth * geometry.boxHeight) /
+      (displayFrame.stageWidth * displayFrame.stageHeight)
+    const scale = Math.min(Math.max(2.24 - areaRatio * 3.4, 1.34), 2.36)
+    const targetX = displayFrame.stageWidth * 0.5
+    const targetY = displayFrame.stageHeight * 0.46
+    const translateX =
+      targetX - displayFrame.left - geometry.centerX * scale
+    const translateY =
+      targetY - displayFrame.top - geometry.centerY * scale
+
+    style.transform = `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`
+    style.transformOrigin = '0 0'
+
+    return style
+  }
+
+  function handleHotspotKeyDown(
+    event: ReactKeyboardEvent<SVGSVGElement>,
+    spot: SpotWithLayout,
+  ) {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return
+    }
+
+    event.preventDefault()
+    onOpenSpot(spot)
+  }
+
   return (
     <div className="home-shell">
       <section className="overview-card fade-rise">
-        <div ref={stageRef} className="overview-stage">
-          <div
-            className="overview-stage__artboard"
-            style={{
-              left: displayFrame.left,
-              top: displayFrame.top,
-              width: displayFrame.width,
-              height: displayFrame.height,
-            }}
-          >
+        <div
+          ref={stageRef}
+          className={[
+            'overview-stage',
+            isOverviewReady ? 'is-ready' : '',
+            isTransitioning ? 'is-transitioning' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          <div className="overview-stage__boot" aria-hidden="true">
+            <span>百泉古建筑群</span>
+            <strong>由总览入景</strong>
+          </div>
+
+          <div className="overview-stage__viewport" style={getViewportStyle()}>
             <img
               className="overview-stage__image"
-              src="/landing/overview.jpg"
+              src={OVERVIEW_IMAGE_SRC}
               alt="百泉古建筑群总览图"
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
+              onLoad={() => setIsOverviewReady(true)}
             />
+
+            <div className="overview-stage__hotspots-layer">
+              {spotsWithLayout.map((spot) => {
+                const geometry = getHotspotGeometry(spot)
+                const isHovered = hoveredSpotId === spot.id
+                const isVisited = visitedSpotIds.includes(spot.id)
+
+                return (
+                  <div
+                    key={spot.id}
+                    className={[
+                      'overview-hotspot',
+                      isHovered ? 'is-hovered' : '',
+                      isVisited ? 'is-visited' : '',
+                      transitionSpotId === spot.id ? 'is-selected' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    style={
+                      {
+                        left: geometry.left,
+                        top: geometry.top,
+                        width: geometry.width,
+                        height: geometry.height,
+                        '--accent': spot.accent,
+                        '--frame-inset': `${hotspotHitPadding}px`,
+                      } as CSSProperties
+                    }
+                  >
+                    <svg
+                      className="overview-hotspot__shape"
+                      viewBox={`0 0 ${geometry.width} ${geometry.height}`}
+                      role="button"
+                      tabIndex={isTransitioning ? -1 : 0}
+                      aria-label={`进入 ${spot.name}`}
+                      onPointerEnter={() => onHoverSpot(spot.id)}
+                      onPointerLeave={() => onHoverSpot(null)}
+                      onFocus={() => onHoverSpot(spot.id)}
+                      onBlur={() => onHoverSpot(null)}
+                      onClick={() => onOpenSpot(spot)}
+                      onKeyDown={(event) => handleHotspotKeyDown(event, spot)}
+                    >
+                      <polygon
+                        className="overview-hotspot__glow"
+                        points={geometry.points}
+                      />
+                      <polygon
+                        className="overview-hotspot__wash"
+                        points={geometry.points}
+                      />
+                      <polygon
+                        className="overview-hotspot__frame"
+                        points={geometry.points}
+                      />
+                    </svg>
+
+                    <span className="overview-hotspot__badge">{spot.order}</span>
+                    <span className="overview-hotspot__name">{spot.name}</span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
+
+          <div className="overview-stage__transition-veil" />
           <div className="overview-stage__wash" />
           <div className="overview-stage__mist overview-stage__mist--left" />
           <div className="overview-stage__mist overview-stage__mist--right" />
+
           <div className="overview-stage__inscription">
             <span>百泉古建总览</span>
             <h2>亭榭散落于水面与山麓之间</h2>
             <p>移入其间，便从长卷走进一处真实的建筑。</p>
           </div>
+
           <div className="overview-stage__trail">
             <span>{spotsWithLayout.length} 处古建筑</span>
             <span>{visitedSpotIds.length} 处已驻足</span>
             <span>循印入景</span>
           </div>
 
-          {spotsWithLayout.map((spot) => {
-            const isHovered = hoveredSpotId === spot.id
-            const isVisited = visitedSpotIds.includes(spot.id)
-
-            return (
-              <button
-                key={spot.id}
-                type="button"
-                className={[
-                  'overview-hotspot',
-                  isHovered ? 'is-hovered' : '',
-                  isVisited ? 'is-visited' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                style={getHotspotStyle(spot)}
-                onPointerEnter={() => onHoverSpot(spot.id)}
-                onPointerLeave={() => onHoverSpot(null)}
-                onFocus={() => onHoverSpot(spot.id)}
-                onBlur={() => onHoverSpot(null)}
-                onClick={() => onOpenSpot(spot)}
-              >
-                <span className="overview-hotspot__wash" aria-hidden="true" />
-                <span className="overview-hotspot__frame" aria-hidden="true" />
-                <span className="overview-hotspot__glow" aria-hidden="true" />
-                <span className="overview-hotspot__badge">{spot.order}</span>
-                <span className="overview-hotspot__name">{spot.name}</span>
-              </button>
-            )
-          })}
-
           {previewSpot ? (
             <article
               className={[
                 'overview-preview',
-                hoveredSpot ? 'is-visible' : '',
+                hoveredSpot && !isTransitioning ? 'is-visible' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
@@ -392,7 +609,11 @@ function HomeView({
               <img
                 src={previewSpot.images[0]?.src}
                 alt={previewSpot.images[0]?.alt ?? previewSpot.name}
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
               />
+
               <div className="overview-preview__copy">
                 <span>
                   {String(previewSpot.order).padStart(2, '0')} · {previewSpot.region}
@@ -405,7 +626,15 @@ function HomeView({
         </div>
       </section>
 
-      <section className="journey-strip fade-rise">
+      <section
+        className={[
+          'journey-strip',
+          'fade-rise',
+          isTransitioning ? 'is-muted' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
         <div className="journey-strip__heading">
           <div>
             <span>行旅次第</span>
@@ -422,7 +651,14 @@ function HomeView({
               className="journey-card"
               onClick={() => onOpenSpot(spot)}
             >
-              <img src={spot.images[0]?.src} alt={spot.images[0]?.alt ?? spot.name} />
+              <img
+                src={spot.images[0]?.src}
+                alt={spot.images[0]?.alt ?? spot.name}
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
+              />
+
               <div className="journey-card__body">
                 <span className="journey-card__order">
                   {String(spot.order).padStart(2, '0')}
@@ -477,6 +713,9 @@ function DetailView({ onBack, onOpenSpot, spot }: DetailViewProps) {
           className="detail-hero__image"
           src={featureImage?.src}
           alt={featureImage?.alt ?? spot.name}
+          loading="eager"
+          decoding="async"
+          fetchPriority="high"
         />
         <div className="detail-hero__veil" />
 
@@ -518,7 +757,14 @@ function DetailView({ onBack, onOpenSpot, spot }: DetailViewProps) {
           </div>
 
           <div className="detail-gallery__feature">
-            <img src={featureImage?.src} alt={featureImage?.alt ?? spot.name} />
+            <img
+              src={featureImage?.src}
+              alt={featureImage?.alt ?? spot.name}
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
+            />
+
             <div>
               <h2>{featureImage?.caption ?? '主图'}</h2>
               <p>
@@ -536,7 +782,13 @@ function DetailView({ onBack, onOpenSpot, spot }: DetailViewProps) {
                 className={index === activeImageIndex ? 'is-active' : undefined}
                 onClick={() => setActiveImageIndex(index)}
               >
-                <img src={image.src} alt={image.alt} />
+                <img
+                  src={image.src}
+                  alt={image.alt}
+                  loading="lazy"
+                  decoding="async"
+                  fetchPriority="low"
+                />
                 <span>{image.caption}</span>
               </button>
             ))}
