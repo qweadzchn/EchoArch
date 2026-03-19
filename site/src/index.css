@@ -896,6 +896,520 @@ button {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.guide-companion {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 40;
+  display: grid;
+  justify-items: end;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.guide-companion > * {
+  pointer-events: auto;
+}
+
+.guide-whisper {
+  width: min(360px, calc(100vw - 32px));
+  padding: 16px 18px 18px;
+  border: 1px solid rgba(87, 61, 34, 0.16);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 235, 198, 0.2), transparent 32%),
+    linear-gradient(180deg, rgba(255, 251, 245, 0.96), rgba(241, 230, 210, 0.92));
+  box-shadow:
+    0 22px 50px rgba(31, 21, 10, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  text-align: left;
+  cursor: pointer;
+  opacity: 0;
+  animation: fadeRise 420ms ease forwards;
+}
+
+.guide-whisper span,
+.guide-panel__section-head span,
+.guide-route-card small,
+.guide-message__eyebrow,
+.guide-panel__ritual span,
+.guide-companion__toggle-copy small,
+.guide-panel__scene-copy span {
+  color: rgba(88, 62, 35, 0.72);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.guide-whisper span {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 0.68rem;
+}
+
+.guide-whisper strong,
+.guide-route-card strong,
+.guide-panel__section-head strong,
+.guide-message__route button,
+.guide-panel__ritual strong,
+.guide-companion__toggle-copy strong,
+.guide-panel__scene-copy h2,
+.guide-panel__ask-toggle button {
+  font-family: var(--font-serif);
+  color: #432d1a;
+}
+
+.guide-whisper strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 1.2rem;
+}
+
+.guide-whisper p,
+.guide-route-card p,
+.guide-panel__scene-copy p,
+.guide-message p {
+  margin: 0;
+  color: rgba(38, 27, 16, 0.84);
+  line-height: 1.72;
+}
+
+.guide-companion__toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px 14px 14px;
+  border: 1px solid rgba(87, 61, 34, 0.16);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 18% 24%, rgba(255, 236, 198, 0.36), transparent 32%),
+    linear-gradient(180deg, rgba(254, 249, 240, 0.96), rgba(239, 227, 205, 0.9));
+  box-shadow:
+    0 20px 42px rgba(43, 29, 14, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  cursor: pointer;
+  transition:
+    transform 240ms ease,
+    box-shadow 240ms ease,
+    opacity 240ms ease;
+  backdrop-filter: blur(10px);
+}
+
+.guide-companion__toggle:hover,
+.guide-companion__toggle:focus-visible {
+  transform: translateY(-4px);
+  box-shadow:
+    0 24px 48px rgba(43, 29, 14, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.24);
+}
+
+.guide-companion__lamp {
+  position: relative;
+  width: 38px;
+  height: 50px;
+  border-radius: 16px 16px 18px 18px;
+  background:
+    linear-gradient(180deg, rgba(185, 62, 43, 0.98), rgba(132, 30, 20, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 233, 208, 0.3),
+    inset 0 -8px 18px rgba(54, 13, 9, 0.3),
+    0 0 28px rgba(221, 162, 95, 0.2);
+}
+
+.guide-companion__lamp::before {
+  content: '';
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  width: 2px;
+  height: 16px;
+  background: rgba(98, 72, 46, 0.72);
+  transform: translateX(-50%);
+}
+
+.guide-companion__lamp::after {
+  content: '';
+  position: absolute;
+  inset: 10px 9px 12px;
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 233, 195, 0.24), transparent 36%),
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 241, 224, 0.18) 0,
+      rgba(255, 241, 224, 0.18) 1px,
+      transparent 1px,
+      transparent 6px
+    );
+}
+
+.guide-companion__toggle-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+}
+
+.guide-companion__toggle-copy strong {
+  font-size: 1rem;
+}
+
+.guide-companion__toggle-copy small {
+  font-size: 0.72rem;
+}
+
+.guide-panel {
+  width: min(440px, calc(100vw - 32px));
+  max-height: min(82vh, 860px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(87, 61, 34, 0.16);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 233, 198, 0.18), transparent 24%),
+    linear-gradient(180deg, rgba(255, 251, 245, 0.98), rgba(240, 229, 210, 0.94));
+  box-shadow:
+    0 28px 70px rgba(32, 22, 11, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(14px);
+  opacity: 0;
+  transform: translate3d(0, 16px, 0) scale(0.98);
+  visibility: hidden;
+  transition:
+    opacity 260ms ease,
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 260ms ease;
+}
+
+.guide-companion.is-open .guide-panel {
+  opacity: 1;
+  visibility: visible;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+.guide-panel__scene {
+  position: relative;
+  overflow: hidden;
+  min-height: 220px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 244, 224, 0.16);
+  background: #2b1b10;
+  box-shadow: 0 22px 40px rgba(32, 22, 11, 0.16);
+}
+
+.guide-panel__scene img,
+.guide-panel__scene::after {
+  position: absolute;
+  inset: 0;
+}
+
+.guide-panel__scene img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.guide-panel__scene::after {
+  content: '';
+  background:
+    linear-gradient(180deg, rgba(13, 11, 9, 0.08) 0%, rgba(13, 11, 9, 0.72) 100%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 28%, transparent), transparent 28%);
+}
+
+.guide-panel__scene-copy,
+.guide-panel__scene-badge {
+  position: relative;
+  z-index: 1;
+}
+
+.guide-panel__scene-copy {
+  min-height: 220px;
+  padding: 22px 22px 58px;
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  color: #fff4e2;
+}
+
+.guide-panel__scene-copy span {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: rgba(255, 232, 195, 0.8);
+  font-size: 0.7rem;
+}
+
+.guide-panel__scene-copy h2 {
+  margin: 0 0 10px;
+  color: #fff7ef;
+  font-size: 1.92rem;
+}
+
+.guide-panel__scene-copy p {
+  color: rgba(255, 241, 218, 0.9);
+}
+
+.guide-panel__scene-badge {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 18px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 244, 224, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 249, 239, 0.14);
+  color: rgba(255, 239, 215, 0.92);
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+}
+
+.guide-panel__ritual {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.guide-panel__ritual div {
+  padding: 14px 14px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(97, 71, 39, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 251, 246, 0.92), rgba(246, 236, 220, 0.9));
+}
+
+.guide-panel__ritual span,
+.guide-panel__ritual strong {
+  display: block;
+}
+
+.guide-panel__ritual span {
+  margin-bottom: 8px;
+  font-size: 0.68rem;
+}
+
+.guide-panel__ritual strong {
+  font-size: 1rem;
+}
+
+.guide-panel__routes,
+.guide-panel__notes {
+  display: grid;
+  gap: 10px;
+}
+
+.guide-panel__section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 14px;
+}
+
+.guide-panel__section-head span {
+  font-size: 0.68rem;
+}
+
+.guide-panel__section-head strong {
+  font-size: 1rem;
+}
+
+.guide-route-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.guide-route-card {
+  appearance: none;
+  padding: 14px 14px 16px;
+  border: 1px solid rgba(96, 70, 38, 0.12);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 251, 246, 0.94), rgba(242, 231, 213, 0.9));
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    border-color 200ms ease;
+}
+
+.guide-route-card small {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 0.64rem;
+}
+
+.guide-route-card strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 1.06rem;
+}
+
+.guide-route-card.is-active,
+.guide-route-card:hover,
+.guide-route-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(184, 137, 78, 0.34);
+  box-shadow: 0 16px 30px rgba(43, 29, 14, 0.1);
+}
+
+.guide-panel__quick,
+.guide-panel__suggestions,
+.guide-message__chips,
+.guide-message__route {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.guide-panel__quick button,
+.guide-panel__suggestions button,
+.guide-message__chips button,
+.guide-message__route button,
+.guide-panel__ask-toggle button {
+  appearance: none;
+  border: 1px solid rgba(96, 70, 38, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 249, 242, 0.92);
+  color: #4c3420;
+  cursor: pointer;
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    border-color 200ms ease;
+}
+
+.guide-panel__quick button,
+.guide-panel__suggestions button,
+.guide-message__chips button {
+  padding: 8px 12px;
+  font-size: 0.84rem;
+}
+
+.guide-panel__ask-toggle {
+  display: flex;
+  justify-content: end;
+}
+
+.guide-panel__ask-toggle button {
+  padding: 10px 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 251, 243, 0.94), rgba(243, 231, 212, 0.92));
+}
+
+.guide-message__route button {
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 243, 0.96), rgba(243, 231, 212, 0.94));
+}
+
+.guide-panel__quick button:hover,
+.guide-panel__quick button:focus-visible,
+.guide-panel__suggestions button:hover,
+.guide-panel__suggestions button:focus-visible,
+.guide-message__chips button:hover,
+.guide-message__chips button:focus-visible,
+.guide-message__route button:hover,
+.guide-message__route button:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(184, 137, 78, 0.34);
+  box-shadow: 0 14px 24px rgba(43, 29, 14, 0.1);
+}
+
+.guide-thread {
+  min-height: 180px;
+  max-height: min(26vh, 280px);
+  overflow: auto;
+  padding-right: 6px;
+  display: grid;
+  gap: 12px;
+}
+
+.guide-thread::-webkit-scrollbar {
+  width: 8px;
+}
+
+.guide-thread::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(98, 72, 46, 0.16);
+}
+
+.guide-message {
+  padding: 14px 16px 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(96, 70, 38, 0.12);
+}
+
+.guide-message.is-guide {
+  background:
+    linear-gradient(180deg, rgba(255, 251, 245, 0.98), rgba(245, 235, 218, 0.92));
+  box-shadow: 0 14px 26px rgba(43, 29, 14, 0.08);
+}
+
+.guide-message.is-user {
+  margin-left: 34px;
+  background:
+    linear-gradient(180deg, rgba(240, 229, 208, 0.72), rgba(233, 220, 195, 0.64));
+}
+
+.guide-message.is-pending {
+  border-style: dashed;
+}
+
+.guide-message__eyebrow {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 0.7rem;
+}
+
+.guide-message__route,
+.guide-message__chips {
+  margin-top: 12px;
+}
+
+.guide-panel__composer {
+  display: grid;
+  gap: 10px;
+}
+
+.guide-panel__composer textarea {
+  width: 100%;
+  resize: none;
+  padding: 14px 16px;
+  border: 1px solid rgba(96, 70, 38, 0.14);
+  border-radius: 20px;
+  background: rgba(255, 252, 247, 0.94);
+  color: #372616;
+  font: inherit;
+  line-height: 1.68;
+}
+
+.guide-panel__composer textarea:focus {
+  outline: 1px solid rgba(184, 137, 78, 0.34);
+  border-color: rgba(184, 137, 78, 0.34);
+}
+
+.guide-panel__composer button {
+  justify-self: end;
+  padding: 10px 16px;
+  border: 1px solid rgba(96, 70, 38, 0.14);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(163, 107, 82, 0.96), rgba(136, 82, 58, 0.96));
+  color: #fff7ee;
+  cursor: pointer;
+  box-shadow: 0 14px 28px rgba(43, 29, 14, 0.12);
+}
+
+.guide-panel__composer button:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
 @keyframes fadeRise {
   from {
     opacity: 0;
@@ -922,6 +1436,16 @@ button {
 @media (max-width: 980px) {
   .detail-page {
     padding: 18px;
+  }
+
+  .guide-companion {
+    right: 18px;
+    bottom: 18px;
+  }
+
+  .guide-whisper,
+  .guide-panel {
+    width: min(420px, calc(100vw - 36px));
   }
 
   .overview-stage__trail {
@@ -966,6 +1490,36 @@ button {
 @media (max-width: 720px) {
   .detail-page {
     padding: 14px;
+  }
+
+  .guide-companion {
+    right: 12px;
+    left: 12px;
+    bottom: 12px;
+    display: block;
+  }
+
+  .guide-companion__toggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .guide-whisper,
+  .guide-panel {
+    width: 100%;
+    max-height: 74vh;
+    margin-top: 10px;
+    border-radius: 24px;
+  }
+
+  .guide-route-grid,
+  .guide-panel__ritual {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .guide-panel__section-head {
+    flex-direction: column;
+    align-items: start;
   }
 
   .overview-stage__inscription {

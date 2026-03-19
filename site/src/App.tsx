@@ -1,4 +1,6 @@
 import {
+  Suspense,
+  lazy,
   startTransition,
   useEffect,
   useRef,
@@ -13,6 +15,12 @@ import {
   type HotspotLayout,
 } from './overview-layout'
 import type { HeritageSpot } from './types'
+
+const GuideCompanion = lazy(() =>
+  import('./guide/GuideCompanion').then((module) => ({
+    default: module.GuideCompanion,
+  })),
+)
 
 type SpotWithLayout = HeritageSpot & {
   layout: HotspotLayout
@@ -177,6 +185,16 @@ function App() {
   const currentSpot =
     spotsWithLayout.find((spot) => spot.id === currentSpotId) ?? null
 
+  function openSpotById(spotId: string) {
+    const nextSpot = spotsWithLayout.find((spot) => spot.id === spotId)
+
+    if (!nextSpot) {
+      return
+    }
+
+    openSpot(nextSpot)
+  }
+
   function openSpot(spot: SpotWithLayout) {
     if (transitionTimerRef.current !== null) {
       window.clearTimeout(transitionTimerRef.current)
@@ -260,6 +278,16 @@ function App() {
           visitedSpotIds={visitedSpotIds}
         />
       )}
+
+      <Suspense fallback={null}>
+        <GuideCompanion
+          currentSpot={currentSpot}
+          currentView={currentSpot ? 'detail' : 'home'}
+          visitedSpotIds={visitedSpotIds}
+          allSpots={spotsWithLayout}
+          onOpenSpot={openSpotById}
+        />
+      </Suspense>
     </main>
   )
 }
