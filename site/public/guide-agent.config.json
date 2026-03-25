@@ -1,0 +1,8 @@
+{
+  "enabled": false,
+  "apiUrl": "/api/guide",
+  "apiToken": "",
+  "supportsClientActions": true,
+  "actionSchemaVersion": "1.0",
+  "notes": "Fill apiUrl with your own backend guide API. Do not place a raw OpenAI secret key in this public file."
+}

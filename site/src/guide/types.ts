@@ -11,6 +11,19 @@ export type GuideRoutePreset = {
   spotIds: string[]
 }
 
+export type GuideAction =
+  | {
+      type: 'open_spot'
+      spotId: string
+    }
+  | {
+      type: 'go_home'
+    }
+  | {
+      type: 'select_route'
+      routeId: string
+    }
+
 export type GuideMessage = {
   id: string
   role: 'guide' | 'user'
@@ -19,6 +32,7 @@ export type GuideMessage = {
   content: string
   suggestedPrompts?: string[]
   suggestedSpotIds?: string[]
+  actions?: GuideAction[]
 }
 
 export type GuideRequest = {
@@ -43,4 +57,13 @@ export type GuideRequest = {
 export type GuideResponse = {
   sessionId: string
   reply: GuideMessage
+}
+
+export type GuideRuntimeConfig = {
+  enabled?: boolean
+  apiUrl?: string
+  apiToken?: string
+  supportsClientActions?: boolean
+  actionSchemaVersion?: string
+  notes?: string
 }
