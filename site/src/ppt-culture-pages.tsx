@@ -7,7 +7,7 @@ import {
   type AcademyEraArticle,
   type SteleCategory,
 } from './data/ppt-content'
-import { Breadcrumbs, CultureTabs } from './ppt-shell'
+import { Breadcrumbs, CultureTabs, ScrollCue } from './ppt-shell'
 import {
   getEraPath,
   getSiblings,
@@ -265,6 +265,8 @@ export function AcademyEraPage({
             </div>
           </div>
         </div>
+
+        <ScrollCue label="继续阅卷" />
       </section>
 
       <section className="ea-page-shell ea-chapter-subnav">
@@ -611,6 +613,8 @@ export function SteleDetailPage({
             </div>
           </div>
         </div>
+
+        <ScrollCue label="继续观碑" />
       </section>
 
       <section className="ea-page-shell ea-chapter-subnav">

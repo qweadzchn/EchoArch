@@ -1,3 +1,4 @@
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { headerNavItems, type AppRoute, type NavKey } from './ppt-router'
 
 export type BreadcrumbItem = {
@@ -21,6 +22,13 @@ type BreadcrumbsProps = {
 type CultureTabsProps = {
   active: 'academy' | 'steles'
   onNavigate: (path: string) => void
+}
+
+type ScrollCueProps = {
+  className?: string
+  label?: string
+  targetId?: string
+  threshold?: number
 }
 
 export function SiteHeader({
@@ -122,5 +130,61 @@ export function CultureTabs({ active, onNavigate }: CultureTabsProps) {
         百泉碑刻欣赏
       </button>
     </div>
+  )
+}
+
+export function ScrollCue({
+  className,
+  label = '继续下探',
+  targetId,
+  threshold = 40,
+}: ScrollCueProps) {
+  const [isHidden, setIsHidden] = useState(false)
+
+  useEffect(() => {
+    const syncVisibility = () => {
+      setIsHidden(window.scrollY > threshold)
+    }
+
+    syncVisibility()
+    window.addEventListener('scroll', syncVisibility, { passive: true })
+
+    return () => {
+      window.removeEventListener('scroll', syncVisibility)
+    }
+  }, [threshold])
+
+  function handleClick(event: ReactMouseEvent<HTMLButtonElement>) {
+    const prefersReducedMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches
+    const fallbackTarget = event.currentTarget.closest('section')?.nextElementSibling
+    const target =
+      (targetId ? document.getElementById(targetId) : fallbackTarget) ?? null
+
+    if (!(target instanceof HTMLElement)) {
+      return
+    }
+
+    target.scrollIntoView({
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      block: 'start',
+    })
+  }
+
+  return (
+    <button
+      type="button"
+      className={['ea-scrollcue', isHidden ? 'is-hidden' : '', className ?? '']
+        .filter(Boolean)
+        .join(' ')}
+      aria-label={`${label}，滚动到下一部分`}
+      onClick={handleClick}
+    >
+      <span>{label}</span>
+      <i aria-hidden="true">
+        <b />
+      </i>
+    </button>
   )
 }

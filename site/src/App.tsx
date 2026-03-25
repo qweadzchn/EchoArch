@@ -16,7 +16,7 @@ import {
   SteleHubPage,
 } from './ppt-culture-pages'
 import { GuidePage, LandingPage, OverviewPage } from './ppt-entry-pages'
-import { SiteHeader } from './ppt-shell'
+import { ScrollCue, SiteHeader } from './ppt-shell'
 import { StoryDetailPage, StoryHubPage } from './ppt-story-pages'
 import {
   GUIDE_LANDING_PROMPT,
@@ -1341,6 +1341,8 @@ function DetailView({ onBack, onOpenSpot, spot }: DetailViewProps) {
             </div>
           </div>
         </div>
+
+        <ScrollCue label="继续入景" />
       </section>
 
       <section className="ea-page-shell ea-chapter-frame spot-article__frame">

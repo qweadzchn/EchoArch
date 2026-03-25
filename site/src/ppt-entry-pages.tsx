@@ -16,7 +16,7 @@ import {
   storyArticles,
 } from './data/ppt-content'
 import { OVERVIEW_IMAGE_SIZE } from './overview-layout'
-import { Breadcrumbs } from './ppt-shell'
+import { Breadcrumbs, ScrollCue } from './ppt-shell'
 import {
   GUIDE_LANDING_PROMPT,
   HOTSPOT_HIT_PADDING_MAX,
@@ -146,6 +146,8 @@ export function LandingPage({ onNavigate, onOpenGuide }: LandingPageProps) {
             <p>风起水动，光影缓缓轮转，像刚踏入园门时最先感到的那口气。</p>
           </div>
         </div>
+
+        <ScrollCue label="继续入园" targetId="landing-preface" />
       </section>
 
       <section className="ea-page-shell ea-landing__preface" id="landing-preface">

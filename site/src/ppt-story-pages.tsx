@@ -1,6 +1,6 @@
 import { openGuideCompanion } from './guide/events'
 import { storyArticles, type StoryArticle } from './data/ppt-content'
-import { Breadcrumbs } from './ppt-shell'
+import { Breadcrumbs, ScrollCue } from './ppt-shell'
 import {
   getSiblings,
   getStoryPath,
@@ -203,6 +203,8 @@ export function StoryDetailPage({
             </div>
           </div>
         </div>
+
+        <ScrollCue label="继续入卷" />
       </section>
 
       <section className="ea-page-shell ea-chapter-frame">
