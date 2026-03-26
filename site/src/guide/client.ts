@@ -12,6 +12,42 @@ function normalizeConfigValue(value: string | undefined) {
   return value?.trim() ?? ''
 }
 
+function stripHtmlTags(text: string) {
+  return text
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+async function resolveGuideErrorMessage(response: Response) {
+  const text = (await response.text()).trim()
+
+  if (!text) {
+    return `导游暂时没有接上话，服务返回了 ${response.status}。`
+  }
+
+  try {
+    const parsed = JSON.parse(text) as { error?: string }
+
+    if (parsed.error?.trim()) {
+      return parsed.error.trim()
+    }
+  } catch {
+    // fall through to plain-text cleanup
+  }
+
+  const normalized = stripHtmlTags(text)
+
+  if (normalized.includes('Origin ') && normalized.includes('not allowed')) {
+    return '当前页面地址没有被导游后端放行，请重启导游服务后再试。'
+  }
+
+  return normalized || `导游暂时没有接上话，服务返回了 ${response.status}。`
+}
+
 async function loadGuideRuntimeConfig() {
   if (!guideRuntimeConfigPromise) {
     guideRuntimeConfigPromise = fetch(GUIDE_RUNTIME_CONFIG_URL, {
@@ -85,18 +121,23 @@ export async function requestGuideReply(
     return createMockGuideReply(payload)
   }
 
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(apiToken ? { Authorization: `Bearer ${apiToken}` } : {}),
-    },
-    body: JSON.stringify(payload),
-  })
+  let response: Response
+
+  try {
+    response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiToken ? { Authorization: `Bearer ${apiToken}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    })
+  } catch {
+    throw new Error('导游暂时没有连上，请确认本地导游后端已经启动。')
+  }
 
   if (!response.ok) {
-    const text = await response.text()
-    throw new Error(text || `Guide API request failed with ${response.status}`)
+    throw new Error(await resolveGuideErrorMessage(response))
   }
 
   return (await response.json()) as GuideResponse

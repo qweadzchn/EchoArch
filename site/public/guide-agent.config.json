@@ -1,5 +1,5 @@
 {
-  "enabled": false,
+  "enabled": true,
   "apiUrl": "/api/guide",
   "apiToken": "",
   "supportsClientActions": true,

@@ -49,6 +49,28 @@ type SendGuideOptions = {
   nextActiveRouteId?: string | null
 }
 
+type PendingGuideRequest = {
+  prompt: string
+  mode: GuideMode
+  fromUser: boolean
+}
+
+type GuideStudyPrompt = {
+  id: string
+  eyebrow: string
+  title: string
+  description: string
+  prompt: string
+  mode: GuideMode
+}
+
+type GuideEncounterPrompt = {
+  id: string
+  label: string
+  prompt: string
+  mode: GuideMode
+}
+
 type GuideAnchorPosition = {
   x: number
   y: number
@@ -148,6 +170,10 @@ function createUserMessage(input: string, mode: GuideMode): GuideMessage {
     mode,
     content: input,
   }
+}
+
+function findLatestUserMessage(messages: GuideMessage[]) {
+  return [...messages].reverse().find((message) => message.role === 'user') ?? null
 }
 
 function findLatestGuideMessage(messages: GuideMessage[]) {
@@ -267,6 +293,232 @@ function buildSceneKey(
   return `${currentView}:${currentSpotId ?? 'home'}:${activeRouteId ?? 'free'}`
 }
 
+function clipPromptText(text: string, maxLength: number) {
+  const normalized = text.replace(/\s+/g, ' ').trim()
+  return normalized.length <= maxLength ? normalized : `${normalized.slice(0, maxLength)}…`
+}
+
+function buildPendingReplyCopy(
+  pendingRequest: PendingGuideRequest | null,
+  currentSpot: HeritageSpot | null,
+  activeRoute: GuideRoutePreset | null,
+) {
+  if (!pendingRequest) {
+    return null
+  }
+
+  if (!pendingRequest.fromUser) {
+    if (currentSpot) {
+      return {
+        title: `泉上将报 ${currentSpot.name}`,
+        content: `我正把 ${currentSpot.name} 眼前这一层景、旧事与去处收成一句，片刻便替你开口。`,
+      }
+    }
+
+    if (activeRoute) {
+      return {
+        title: '泉上正为你引路',
+        content: `我正沿着「${activeRoute.title}」替你理一理先后脚，让这条线从第一口气就顺起来。`,
+      }
+    }
+
+    return {
+      title: '泉上将起话头',
+      content: '我正替你把北岸、湖心、书院与西岸的层次收拢起来，好让这次入园像被人轻轻带进去。',
+    }
+  }
+
+  if (pendingRequest.mode === 'image') {
+    return {
+      title: currentSpot ? `泉上正替你看 ${currentSpot.name}` : '泉上正替你看图',
+      content: currentSpot
+        ? `已记下你想读图。我正把 ${currentSpot.name} 的实景、古风图与素描图并在一处，换成更好懂的看法说给你听。`
+        : '已记下你想先学会读总览。我正替你分辨图中方位、气口与适合先行的一线。',
+    }
+  }
+
+  if (pendingRequest.mode === 'route') {
+    return {
+      title: '泉上正在辨路',
+      content: currentSpot
+        ? `已听见你想换一条走法。我正从 ${currentSpot.name} 所在的位置往前后两头理顺，好让转场更自然。`
+        : '已听见你想先定走法。我正顺着入园气口替你收一条更稳、更像真游览的路线。',
+    }
+  }
+
+  return {
+    title: '泉上正在应声',
+    content: `你刚刚低声说的是「${clipPromptText(pendingRequest.prompt, 24)}」。我正顺着眼前景势接这句话，不会让这一程断下来。`,
+  }
+}
+
+function buildGuideStudyPrompts(
+  currentSpot: HeritageSpot | null,
+  activeRoute: GuideRoutePreset | null,
+  relatedSpots: HeritageSpot[],
+): GuideStudyPrompt[] {
+  if (currentSpot) {
+    return [
+      {
+        id: 'detail',
+        eyebrow: '细讲',
+        title: `细讲 ${currentSpot.name}`,
+        description: '把位置、来历、结构看点和为何值得停步看，讲得更细一些。',
+        prompt: `请依据当前项目内部资料，详细讲讲${currentSpot.name}，优先说清它的位置、来历、结构看点、与周边关系；如果资料没有直接写到，就明确说明。`,
+        mode: 'story',
+      },
+      {
+        id: 'material',
+        eyebrow: '资料',
+        title: '翻项目资料',
+        description: '只依据现有项目资料，把这一处最关键的几层信息提炼出来。',
+        prompt: `请翻查当前项目内部资料，把${currentSpot.name}现有资料里最关键的3点讲给我，尽量依据资料原意，不要空泛扩写。`,
+        mode: 'ask',
+      },
+      {
+        id: 'image',
+        eyebrow: relatedSpots[0] ? '对照' : '图像',
+        title: relatedSpots[0] ? `连着看 ${relatedSpots[0].name}` : '看图说图',
+        description: relatedSpots[0]
+          ? `把 ${currentSpot.name} 和 ${relatedSpots[0].name} 放在一条线上看，讲讲它们如何互相引。`
+          : '从实景、古风图和素描图三个角度，教我如何看懂这一处。',
+        prompt: relatedSpots[0]
+          ? `请依据项目内部资料，讲讲${currentSpot.name}和${relatedSpots[0].name}之间的关系，它们在游览节奏上为什么适合连着看。`
+          : `请依据项目内部资料和当前图像，讲讲${currentSpot.name}的实景图、古风图、素描图分别该怎么看。`,
+        mode: relatedSpots[0] ? 'route' : 'image',
+      },
+    ]
+  }
+
+  if (activeRoute) {
+    return [
+      {
+        id: 'route-detail',
+        eyebrow: '路引',
+        title: `细看「${activeRoute.title}」`,
+        description: '讲清这条线为什么这样走，哪里该先收、哪里该后放。',
+        prompt: `请依据当前项目内部资料，详细介绍「${activeRoute.title}」这条路线为什么这样安排，沿途最值得停下来的点分别是什么。`,
+        mode: 'route',
+      },
+      {
+        id: 'route-material',
+        eyebrow: '资料',
+        title: '翻路线资料',
+        description: '先按现有资料，把这条线里最关键的几站和关系梳理出来。',
+        prompt: `请依据当前项目内部资料，概括「${activeRoute.title}」这条路线最关键的3个看点，并说明它们之间的空间转场关系。`,
+        mode: 'ask',
+      },
+      {
+        id: 'route-image',
+        eyebrow: '图法',
+        title: '看总览图法',
+        description: '从总览里辨认这一线的起承转合，先把全局方位看清。',
+        prompt: `请结合当前总览与项目内部资料，教我怎么在图上看懂「${activeRoute.title}」这条线的起点、转场和收束。`,
+        mode: 'image',
+      },
+    ]
+  }
+
+  return [
+    {
+      id: 'home-pick',
+      eyebrow: '细讲',
+      title: '先细看一处',
+      description: '别先泛泛而谈，替我挑一处最适合第一次入园细听的地方。',
+      prompt: '请依据当前项目内部资料，替我挑出最适合第一次入园先细听的一处，并详细说明为什么适合从这里开始。',
+      mode: 'welcome',
+    },
+    {
+      id: 'home-material',
+      eyebrow: '资料',
+      title: '翻项目资料',
+      description: '先把整组古建筑最值得知道的三层信息翻给我看。',
+      prompt: '请依据当前项目内部资料，概括百泉古建筑群最值得先知道的3件事，尽量具体，不要泛泛抒情。',
+      mode: 'ask',
+    },
+    {
+      id: 'home-image',
+      eyebrow: '图法',
+      title: '看总览图法',
+      description: '先教我怎么读这张总览图，哪里是门庭，哪里是水心，哪里适合先走。',
+      prompt: '请依据当前总览图和项目内部资料，教我怎么快速读懂这张总览图的方位、气口和推荐起步路线。',
+      mode: 'image',
+    },
+  ]
+}
+
+function buildGuideEncounterPrompts(
+  currentSpot: HeritageSpot | null,
+  activeRoute: GuideRoutePreset | null,
+): GuideEncounterPrompt[] {
+  if (currentSpot) {
+    return [
+      {
+        id: 'detail-focus',
+        label: '这处最该看哪个细部',
+        prompt: `如果我现在站在${currentSpot.name}前，最值得先看哪一个细部？请像导游一样指给我看。`,
+        mode: 'story',
+      },
+      {
+        id: 'detail-image',
+        label: '这张图里先看哪里',
+        prompt: `请结合${currentSpot.name}当前图像，告诉我这张图里应该先看哪里，再看哪里。`,
+        mode: 'image',
+      },
+      {
+        id: 'detail-material',
+        label: '这里有什么容易错过',
+        prompt: `依据项目内部资料，讲讲${currentSpot.name}里最容易被游客忽略、但其实很值得看的地方。`,
+        mode: 'ask',
+      },
+    ]
+  }
+
+  if (activeRoute) {
+    return [
+      {
+        id: 'route-read-map',
+        label: '这条线先看哪一段',
+        prompt: `请结合当前总览，告诉我「${activeRoute.title}」这条线应该先看哪一段，为什么。`,
+        mode: 'image',
+      },
+      {
+        id: 'route-encounter',
+        label: '路上遇到什么值得停',
+        prompt: `请依据项目内部资料，告诉我沿着「${activeRoute.title}」走时，路上最值得停下来看的一样东西是什么。`,
+        mode: 'route',
+      },
+      {
+        id: 'route-hidden',
+        label: '这条线最容易忽略什么',
+        prompt: `请依据项目内部资料，讲讲「${activeRoute.title}」这条线里最容易被忽略的一处细节或转场。`,
+        mode: 'ask',
+      },
+    ]
+  }
+
+  return [
+    {
+      id: 'home-overview',
+      label: '总览图上先看哪里',
+      prompt: '请像站在我身边一样，教我这张总览图上应该先看哪里，再看哪里。',
+      mode: 'image',
+    },
+    {
+      id: 'home-object',
+      label: '入园最值得先认什么',
+      prompt: '如果我是第一次来，刚入园时最值得先认清的一样东西是什么？请像导游一样告诉我。',
+      mode: 'welcome',
+    },
+    {
+      id: 'home-hidden',
+      label: '这里什么最容易被忽略',
+      prompt: '依据项目内部资料，讲讲百泉古建筑群里最容易被第一次游客忽略的一样东西。',
+      mode: 'ask',
+    },
+  ]
+}
+
 export function GuideCompanion({
   currentSpot,
   currentView,
@@ -285,6 +537,7 @@ export function GuideCompanion({
   const [sessionId] = useState(() => createGuideSessionId())
   const [isPending, setIsPending] = useState(false)
   const [messages, setMessages] = useState<GuideMessage[]>([])
+  const [pendingRequest, setPendingRequest] = useState<PendingGuideRequest | null>(null)
   const [input, setInput] = useState('')
   const [isComposerOpen, setIsComposerOpen] = useState(false)
   const [isArchiveOpen, setIsArchiveOpen] = useState(false)
@@ -296,7 +549,7 @@ export function GuideCompanion({
     () => typeof window !== 'undefined' && window.innerWidth <= GUIDE_COMPACT_BREAKPOINT,
   )
   const [isDragging, setIsDragging] = useState(false)
-  const messageEndRef = useRef<HTMLDivElement | null>(null)
+  const sheetScrollRef = useRef<HTMLDivElement | null>(null)
   const viewKeyRef = useRef<string | null>(null)
   const narratedSceneRef = useRef<string | null>(null)
   const dragGestureRef = useRef<DragGesture | null>(null)
@@ -329,6 +582,7 @@ export function GuideCompanion({
   const nextRouteSpot = getNextRouteSpot(routeSpots, currentSpot, visitedSpotIds)
   const sceneNote = getArrivalNote(currentSpot, activeRoute?.title ?? null)
   const sceneKey = buildSceneKey(currentView, currentSpot?.id ?? null, activeRoute?.id ?? null)
+  const latestUserMessage = findLatestUserMessage(messages)
   const latestGuideMessage = findLatestGuideMessage(messages)
   const archivedGuideMessages = getGuideArchive(messages)
   const sceneImage = currentSpot?.images[0]?.src ?? '/landing/overview.jpg'
@@ -367,6 +621,10 @@ export function GuideCompanion({
       ) ?? null,
     [latestGuideMessage?.actions],
   )
+  const pendingRoute = useMemo(
+    () => getRouteById(pendingRouteSelection?.routeId),
+    [pendingRouteSelection?.routeId],
+  )
   const visitedSpots = useMemo(
     () =>
       visitedSpotIds
@@ -404,6 +662,21 @@ export function GuideCompanion({
     : undefined
   const currentNarrationTitle = latestGuideMessage?.title ?? sceneNote.title
   const currentNarrationContent = latestGuideMessage?.content ?? sceneNote.content
+  const pendingReplyCopy = buildPendingReplyCopy(pendingRequest, currentSpot, activeRoute)
+  const displayNarrationTitle = isPending && pendingReplyCopy ? pendingReplyCopy.title : currentNarrationTitle
+  const displayNarrationContent =
+    isPending && pendingReplyCopy ? pendingReplyCopy.content : currentNarrationContent
+  const currentUtterance = pendingRequest?.fromUser
+    ? pendingRequest.prompt
+    : latestUserMessage?.content ?? null
+  const studyPrompts = useMemo(
+    () => buildGuideStudyPrompts(currentSpot, activeRoute, relatedSpots),
+    [activeRoute, currentSpot, relatedSpots],
+  )
+  const encounterPrompts = useMemo(
+    () => buildGuideEncounterPrompts(currentSpot, activeRoute),
+    [activeRoute, currentSpot],
+  )
   const currentRouteStopIndex =
     activeRoute && currentSpot ? activeRoute.spotIds.findIndex((spotId) => spotId === currentSpot.id) : -1
   const chapterLabel = activeRoute
@@ -570,12 +843,21 @@ export function GuideCompanion({
   }, [isCompactViewport])
 
   useEffect(() => {
-    if (!messageEndRef.current) {
+    if (!isOpen || !sheetScrollRef.current) {
       return
     }
 
-    messageEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  }, [latestGuideMessage, isArchiveOpen, isComposerOpen, isPending])
+    const timer = window.setTimeout(() => {
+      sheetScrollRef.current?.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      })
+    }, isPending ? 40 : 70)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [isOpen, isPending, latestGuideMessage?.id])
 
   useEffect(() => {
     if (isOpen) {
@@ -631,19 +913,34 @@ export function GuideCompanion({
     }
   }
 
-  function handleGuideNavigation(action: GuideNavigationAction) {
+  function collapseGuideDock() {
+    setIsOpen(false)
     setIsArchiveOpen(false)
+    setIsComposerOpen(false)
+    setWhisper(null)
+  }
 
+  function travelToSpot(spotId: string) {
+    collapseGuideDock()
+    onOpenSpot(spotId)
+  }
+
+  function travelToHome() {
+    collapseGuideDock()
+    onGoHome()
+  }
+
+  function handleGuideNavigation(action: GuideNavigationAction) {
     if (action.type === 'open_spot' && pendingRouteSelection) {
       setActiveRouteId(pendingRouteSelection.routeId)
     }
 
     if (action.type === 'go_home') {
-      onGoHome()
+      travelToHome()
       return
     }
 
-    onOpenSpot(action.spotId)
+    travelToSpot(action.spotId)
   }
 
   async function sendGuideRequest(
@@ -664,10 +961,17 @@ export function GuideCompanion({
     }
 
     setIsPending(true)
+    setPendingRequest({
+      prompt,
+      mode,
+      fromUser: addUserMessage,
+    })
 
     try {
       if (addUserMessage) {
         setMessages((current) => [...current, createUserMessage(prompt, mode)])
+        setIsComposerOpen(false)
+        setIsArchiveOpen(false)
       }
 
       const response = await requestGuideReply({
@@ -700,6 +1004,7 @@ export function GuideCompanion({
       ])
     } finally {
       setIsPending(false)
+      setPendingRequest(null)
     }
   }
 
@@ -765,6 +1070,10 @@ export function GuideCompanion({
   }
 
   function handleRouteSelect(route: GuideRoutePreset) {
+    if (isPending) {
+      return
+    }
+
     setIsArchiveOpen(false)
     setIsComposerOpen(false)
     void sendGuideRequest(route.prompt, 'route', {
@@ -877,7 +1186,7 @@ export function GuideCompanion({
                     ]
                       .filter(Boolean)
                       .join(' ')}
-                    onClick={() => onOpenSpot(spot.id)}
+                    onClick={() => travelToSpot(spot.id)}
                   >
                     <span className="guide-footprint__order">
                       {String(spot.order).padStart(2, '0')}
@@ -919,7 +1228,7 @@ export function GuideCompanion({
                       ]
                         .filter(Boolean)
                         .join(' ')}
-                      onClick={() => onOpenSpot(spot.id)}
+                      onClick={() => travelToSpot(spot.id)}
                     >
                       <span className="guide-route__order">
                         {String(index + 1).padStart(2, '0')}
@@ -940,6 +1249,7 @@ export function GuideCompanion({
                       key={route.id}
                       type="button"
                       className="guide-route-card"
+                      disabled={isPending}
                       onClick={() => handleRouteSelect(route)}
                     >
                       <span className="guide-route-card__index">
@@ -965,6 +1275,7 @@ export function GuideCompanion({
                       key={route.id}
                       type="button"
                       className="guide-route-card is-compact"
+                      disabled={isPending}
                       onClick={() => handleRouteSelect(route)}
                     >
                       <span className="guide-route-card__index">
@@ -982,27 +1293,40 @@ export function GuideCompanion({
           </div>
         </div>
 
-        <div className="guide-dock__sheet">
+        <div className="guide-dock__sheet" ref={sheetScrollRef}>
           <div className="guide-sheet__lead">
             <div className="guide-blockhead">
               <span>当下讲解</span>
-              <strong>{currentNarrationTitle}</strong>
+              <strong>{displayNarrationTitle}</strong>
             </div>
             <div className="guide-sheet__meta">
               <span>{chapterLabel}</span>
               <span>{activeRoute ? activeRoute.title : sceneLabel}</span>
             </div>
+            {currentUtterance ? (
+              <div className={['guide-sheet__utterance', isPending ? 'is-pending' : ''].join(' ')}>
+                <span>{isPending ? '你刚刚递来一句' : '你方才轻声说'}</span>
+                <p>{currentUtterance}</p>
+              </div>
+            ) : null}
+            {isPending ? (
+              <div className="guide-sheet__pending-banner" aria-live="polite">
+                <span className="guide-sheet__pending-dot" aria-hidden="true" />
+                <strong>{pendingReplyCopy?.title ?? '泉上正在应声'}</strong>
+                <p>{pendingReplyCopy?.content ?? '我正顺着眼前景势把这一句接住。'}</p>
+              </div>
+            ) : null}
           </div>
 
-          <article className="guide-sheet">
+          <article className="guide-sheet" aria-busy={isPending}>
             <div className="guide-sheet__header">
-              <span className="guide-sheet__eyebrow">此站报签</span>
+              <span className="guide-sheet__eyebrow">{isPending ? '泉上应声' : '此站报签'}</span>
               <span className="guide-sheet__seal" aria-hidden="true">
                 泉
               </span>
             </div>
-            <h3>{currentNarrationTitle}</h3>
-            <p>{currentNarrationContent}</p>
+            <h3>{displayNarrationTitle}</h3>
+            <p>{displayNarrationContent}</p>
 
             <div className="guide-sheet__command-note">
               <span>可直接发话</span>
@@ -1011,6 +1335,7 @@ export function GuideCompanion({
                   <button
                     key={command}
                     type="button"
+                    disabled={isPending}
                     onClick={() => void sendGuideRequest(command, 'ask')}
                   >
                     {command}
@@ -1020,18 +1345,30 @@ export function GuideCompanion({
             </div>
 
             {navigationActions.length > 0 ? (
-              <div className="guide-sheet__jump">
-                <span>导游建议</span>
-                <div className="guide-sheet__route">
+              <section className="guide-wayfinder">
+                <div className="guide-blockhead">
+                  <span>路已认好</span>
+                  <strong>
+                    {pendingRoute ? `已替你收在「${pendingRoute.title}」里` : '点一下就跟着导游转去下一处'}
+                  </strong>
+                </div>
+                <div className="guide-wayfinder__grid">
                   {navigationActions.map((action, index) => {
                     if (action.type === 'go_home') {
                       return (
                         <button
                           key={`guide-jump-home-${index}`}
                           type="button"
+                          className="guide-wayfinder__card"
                           onClick={() => handleGuideNavigation(action)}
                         >
-                          回到总览再辨方位
+                          <small>先退一步</small>
+                          <strong>回到总览辨方位</strong>
+                          <p>
+                            {currentSpot
+                              ? `先从 ${currentSpot.name} 退回全局，再看北岸、湖心与书院的去向。`
+                              : '先把总览图重新收回眼前，再挑一条更顺脚的走法。'}
+                          </p>
                         </button>
                       )
                     }
@@ -1046,20 +1383,27 @@ export function GuideCompanion({
                       <button
                         key={`guide-jump-${jumpSpot.id}`}
                         type="button"
+                        className="guide-wayfinder__card"
                         onClick={() => handleGuideNavigation(action)}
                       >
-                        前往 {jumpSpot.name}
+                        <small>{pendingRoute ? `顺着「${pendingRoute.title}」` : '导游已认好去处'}</small>
+                        <strong>前往 {jumpSpot.name}</strong>
+                        <p>
+                          {currentSpot
+                            ? `从 ${currentSpot.name} 转去 ${jumpSpot.name}，景的收放会更自然。`
+                            : `${jumpSpot.name} 适合做此刻第一站，点此便可跟着路引过去。`}
+                        </p>
                       </button>
                     )
                   })}
                 </div>
-              </div>
+              </section>
             ) : null}
 
             {routeSuggestionSpots.length > 0 ? (
               <div className="guide-sheet__route">
                 {routeSuggestionSpots.map((spot) => (
-                  <button key={spot.id} type="button" onClick={() => onOpenSpot(spot.id)}>
+                  <button key={spot.id} type="button" onClick={() => travelToSpot(spot.id)}>
                     去 {spot.name}
                   </button>
                 ))}
@@ -1071,6 +1415,7 @@ export function GuideCompanion({
                 <button
                   key={prompt}
                   type="button"
+                  disabled={isPending}
                   onClick={() => void sendGuideRequest(prompt, currentSpot ? 'ask' : 'welcome')}
                 >
                   {prompt}
@@ -1079,10 +1424,52 @@ export function GuideCompanion({
             </div>
           </article>
 
+          <section className="guide-encounter">
+            <div className="guide-blockhead">
+              <span>见物可问</span>
+              <strong>看见细部、图像、转场、碑刻，都可以直接问导游</strong>
+            </div>
+            <div className="guide-encounter__chips">
+              {encounterPrompts.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => void sendGuideRequest(item.prompt, item.mode)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="guide-study">
+            <div className="guide-blockhead">
+              <span>可深可浅</span>
+              <strong>不只问路，也可以翻项目里的现成资料</strong>
+            </div>
+            <div className="guide-study__grid">
+              {studyPrompts.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="guide-study-card"
+                  disabled={isPending}
+                  onClick={() => void sendGuideRequest(item.prompt, item.mode)}
+                >
+                  <small>{item.eyebrow}</small>
+                  <strong>{item.title}</strong>
+                  <p>{item.description}</p>
+                </button>
+              ))}
+            </div>
+          </section>
+
           <div className="guide-sheet__actions-grid">
             <button
               type="button"
               className="guide-action-card"
+              disabled={isPending}
               onClick={() =>
                 void sendGuideRequest(
                   currentSpot ? '请像现场导游一样，再报一遍这一站' : '请像导游一样，重新为我开场',
@@ -1097,6 +1484,7 @@ export function GuideCompanion({
             <button
               type="button"
               className="guide-action-card"
+              disabled={isPending}
               onClick={() =>
                 void sendGuideRequest(
                   currentSpot ? '帮我看看这一处的图像应该怎么读' : '先教我怎么看这张总览图',
@@ -1109,7 +1497,7 @@ export function GuideCompanion({
               <p>{currentSpot ? '分辨实景、古风图与素描图的看法。' : '先学会读懂总览与点位。'}</p>
             </button>
             {currentSpot ? (
-              <button type="button" className="guide-action-card" onClick={onGoHome}>
+              <button type="button" className="guide-action-card" onClick={travelToHome}>
                 <small>退一步</small>
                 <strong>回总览</strong>
                 <p>退回全局，再看湖心、北岸与书院的走向。</p>
@@ -1118,9 +1506,10 @@ export function GuideCompanion({
               <button
                 type="button"
                 className="guide-action-card"
+                disabled={isPending}
                 onClick={() => {
                   if (nextRouteSpot) {
-                    onOpenSpot(nextRouteSpot.id)
+                    travelToSpot(nextRouteSpot.id)
                     return
                   }
 
@@ -1136,7 +1525,7 @@ export function GuideCompanion({
               <button
                 type="button"
                 className="guide-action-card"
-                onClick={() => onOpenSpot(nextRouteSpot.id)}
+                onClick={() => travelToSpot(nextRouteSpot.id)}
               >
                 <small>续行</small>
                 <strong>去下一站 {nextRouteSpot.name}</strong>
@@ -1146,6 +1535,7 @@ export function GuideCompanion({
               <button
                 type="button"
                 className="guide-action-card"
+                disabled={isPending}
                 onClick={() => setIsComposerOpen((current) => !current)}
               >
                 <small>私语</small>
@@ -1166,6 +1556,7 @@ export function GuideCompanion({
                 <button
                   key={prompt}
                   type="button"
+                  disabled={isPending}
                   onClick={() => void sendGuideRequest(prompt, currentSpot ? 'ask' : 'welcome')}
                 >
                   {prompt}
@@ -1201,8 +1592,12 @@ export function GuideCompanion({
           ) : null}
 
           <div className="guide-sheet__askbar">
-            <button type="button" onClick={() => setIsComposerOpen((current) => !current)}>
-              {isComposerOpen ? '先把路笺收起' : '低声问路'}
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => setIsComposerOpen((current) => !current)}
+            >
+              {isPending ? '导游正在应声' : isComposerOpen ? '先把路笺收起' : '低声问路'}
             </button>
           </div>
 
@@ -1211,6 +1606,7 @@ export function GuideCompanion({
               <textarea
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
+                disabled={isPending}
                 placeholder={
                   currentSpot
                     ? `写下想改去的地方、想看的图像，或让导游继续讲 ${currentSpot.name}`
@@ -1223,20 +1619,18 @@ export function GuideCompanion({
                   例如：{currentSpot ? `带我转去${nextRouteSpot?.name ?? '总览'} / 回总览 / 换条路线` : '去卫源庙 / 走湖心听水 / 先带我入园'}
                 </small>
                 <button type="submit" disabled={isPending}>
-                  递出路笺
+                  {isPending ? '泉上应声中' : '递出路笺'}
                 </button>
               </div>
             </form>
           ) : null}
 
           {isPending ? (
-            <div className="guide-sheet__pending">
-              <span>导游正在整理语气</span>
-              <p>稍候片刻，我把眼前这一段景与旧事重新替你串一下。</p>
+            <div className="guide-sheet__pending" aria-live="polite">
+              <span>泉上引游正在回身接话</span>
+              <p>{pendingReplyCopy?.content ?? '稍候片刻，我把眼前这一段景与旧事重新替你串一下。'}</p>
             </div>
           ) : null}
-
-          <div ref={messageEndRef} />
         </div>
       </aside>
     </>
@@ -1251,6 +1645,7 @@ export function GuideCompanion({
         isCompactViewport ? 'is-compact' : '',
         `is-align-${dockPlacement.horizontal}`,
         `is-dock-${dockPlacement.vertical}`,
+        isPending ? 'is-pending' : '',
         isDragging ? 'is-dragging' : '',
       ]
         .filter(Boolean)
@@ -1269,8 +1664,10 @@ export function GuideCompanion({
 
         <span className="guide-companion__toggle-copy">
           <strong>{activeRoute ? activeRoute.title : guideProfile.name}</strong>
-          <small>{toggleSummary}</small>
-          {!isCompactViewport ? <em>{isDragging ? '松开即停' : '按住灯笼可挪位'}</em> : null}
+          <small>{isPending ? '导游已接话，正替你辨景' : toggleSummary}</small>
+          {!isCompactViewport ? (
+            <em>{isPending ? '灯影未灭，片刻即回' : isDragging ? '松开即停' : '按住灯笼可挪位'}</em>
+          ) : null}
         </span>
       </button>
 
