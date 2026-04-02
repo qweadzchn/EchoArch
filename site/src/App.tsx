@@ -81,11 +81,32 @@ type HotspotGeometry = {
 const HOTSPOT_HIT_PADDING_MIN = 14
 const HOTSPOT_HIT_PADDING_MAX = 26
 const OVERVIEW_IMAGE_SRC = '/landing/overview.jpg'
+const MUSIC_STORAGE_KEY = 'echoarch.music.enabled'
+const MUSIC_SOURCE = '/audio/zhulangxing.mp3'
 const HOME_SECTION_LINKS = [
   { id: 'intro-section', label: '钟灵百泉' },
   { id: 'stories-section', label: '鸾翔凤集' },
   { id: 'timeline-section', label: '文脉流长' },
 ] as const
+
+function readStoredMusicPreference() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.localStorage.getItem(MUSIC_STORAGE_KEY) === 'true'
+}
+
+function getMusicVolume(page: AppRoute['page']) {
+  switch (page) {
+    case 'landing':
+      return 0.26
+    case 'spot':
+      return 0.18
+    default:
+      return 0.22
+  }
+}
 
 const spotsWithLayout: SpotWithLayout[] = heritageSpots
   .map((spot) => {
@@ -169,7 +190,11 @@ function createDisplayFrame(stageWidth: number, stageHeight: number): DisplayFra
 }
 
 function App() {
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const resumeMusicWhenVisibleRef = useRef(false)
   const [route, setRoute] = useState<AppRoute>(() => readRouteFromHash())
+  const [isMusicEnabled, setIsMusicEnabled] = useState(() => readStoredMusicPreference())
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false)
   const [visitedSpotIds, setVisitedSpotIds] = useState<string[]>(() => {
     const initialRoute = readRouteFromHash()
     return initialRoute.page === 'spot' ? [initialRoute.spotId] : []
@@ -227,6 +252,86 @@ function App() {
     window.scrollTo(0, 0)
   }, [route])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(MUSIC_STORAGE_KEY, isMusicEnabled ? 'true' : 'false')
+  }, [isMusicEnabled])
+
+  useEffect(() => {
+    const audio = audioRef.current
+
+    if (!audio) {
+      return
+    }
+
+    audio.volume = getMusicVolume(route.page)
+
+    if (!isMusicEnabled) {
+      resumeMusicWhenVisibleRef.current = false
+      audio.pause()
+      return
+    }
+
+    void audio.play().catch(() => {
+      setIsMusicPlaying(false)
+    })
+  }, [isMusicEnabled, route.page])
+
+  useEffect(() => {
+    const audio = audioRef.current
+
+    if (!audio) {
+      return
+    }
+
+    function handlePlay() {
+      setIsMusicPlaying(true)
+    }
+
+    function handlePause() {
+      setIsMusicPlaying(false)
+    }
+
+    audio.addEventListener('play', handlePlay)
+    audio.addEventListener('pause', handlePause)
+
+    return () => {
+      audio.removeEventListener('play', handlePlay)
+      audio.removeEventListener('pause', handlePause)
+    }
+  }, [])
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      const audio = audioRef.current
+
+      if (!audio || !isMusicEnabled) {
+        return
+      }
+
+      if (document.hidden) {
+        resumeMusicWhenVisibleRef.current = !audio.paused
+        audio.pause()
+        return
+      }
+
+      if (resumeMusicWhenVisibleRef.current) {
+        void audio.play().catch(() => {
+          setIsMusicPlaying(false)
+        })
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [isMusicEnabled])
+
   const currentSpot =
     route.page === 'spot'
       ? spotsWithLayout.find((spot) => spot.id === route.spotId) ?? null
@@ -265,6 +370,30 @@ function App() {
 
   function openSpot(spot: SpotWithLayout) {
     navigateTo(getSpotPath(spot.id))
+  }
+
+  async function handleToggleMusic() {
+    const audio = audioRef.current
+
+    if (!audio) {
+      return
+    }
+
+    if (isMusicEnabled) {
+      resumeMusicWhenVisibleRef.current = false
+      audio.pause()
+      setIsMusicEnabled(false)
+      return
+    }
+
+    setIsMusicEnabled(true)
+    audio.volume = getMusicVolume(route.page)
+
+    try {
+      await audio.play()
+    } catch {
+      setIsMusicPlaying(false)
+    }
   }
 
   let page = null
@@ -382,6 +511,10 @@ function App() {
 
   return (
     <main className={`app-shell ea-app-shell route-${route.page}`}>
+      <audio ref={audioRef} preload="metadata" loop>
+        <source src={MUSIC_SOURCE} type="audio/mpeg" />
+      </audio>
+
       {route.page !== 'spot' ? (
         <SiteHeader
           activeNav={getActiveNav(route)}
@@ -404,6 +537,32 @@ function App() {
           onGoHome={() => navigateTo('/overview')}
         />
       </Suspense>
+
+      <button
+        type="button"
+        className={[
+          'music-dock',
+          isMusicEnabled ? 'is-active' : '',
+          isMusicPlaying ? 'is-playing' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        aria-pressed={isMusicEnabled}
+        onClick={() => void handleToggleMusic()}
+      >
+        <span className="music-dock__signal" aria-hidden="true" />
+        <div className="music-dock__copy">
+          <span>听泉入园</span>
+          <strong>{isMusicEnabled ? '朱廊行' : '轻开底乐'}</strong>
+          <small>
+            {isMusicEnabled
+              ? isMusicPlaying
+                ? '底乐已起，轻按可暂歇'
+                : '已记住偏好，点此续起'
+              : '默认静音，点此轻轻开乐'}
+          </small>
+        </div>
+      </button>
     </main>
   )
 }

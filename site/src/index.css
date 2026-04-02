@@ -106,6 +106,93 @@ button {
   padding: 0 0 54px;
 }
 
+.music-dock {
+  position: fixed;
+  left: 22px;
+  bottom: 22px;
+  z-index: 35;
+  min-width: 184px;
+  padding: 12px 16px 12px 14px;
+  border: 1px solid rgba(87, 61, 34, 0.14);
+  border-radius: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  color: #3c2818;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at top right, rgba(255, 232, 192, 0.18), transparent 24%),
+    linear-gradient(180deg, rgba(255, 251, 245, 0.95), rgba(237, 224, 201, 0.9));
+  box-shadow:
+    0 20px 44px rgba(43, 29, 14, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 0 0 1px rgba(122, 89, 47, 0.06);
+  backdrop-filter: blur(14px);
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+}
+
+.music-dock:hover,
+.music-dock:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(184, 137, 78, 0.34);
+  box-shadow:
+    0 24px 48px rgba(43, 29, 14, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.44),
+    inset 0 0 0 1px rgba(122, 89, 47, 0.08);
+}
+
+.music-dock__signal {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  border-radius: 999px;
+  background: rgba(113, 88, 54, 0.3);
+  box-shadow: 0 0 0 1px rgba(87, 61, 34, 0.08);
+}
+
+.music-dock.is-active .music-dock__signal {
+  background: linear-gradient(180deg, rgba(183, 126, 68, 0.98), rgba(144, 92, 47, 0.98));
+  box-shadow:
+    0 0 0 0 rgba(184, 137, 78, 0.24),
+    0 0 18px rgba(214, 165, 102, 0.22);
+}
+
+.music-dock.is-playing .music-dock__signal {
+  animation: guidePulse 1.6s ease-out infinite;
+}
+
+.music-dock__copy {
+  display: grid;
+  gap: 3px;
+}
+
+.music-dock__copy span,
+.music-dock__copy small {
+  color: rgba(88, 62, 35, 0.76);
+}
+
+.music-dock__copy span {
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.music-dock__copy strong {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  font-weight: 600;
+  color: #432d1a;
+}
+
+.music-dock__copy small {
+  line-height: 1.5;
+}
+
 .section-shell {
   width: min(calc(100% - 64px), 1480px);
   margin: 0 auto;
@@ -3939,6 +4026,12 @@ button {
   .detail-story {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .music-dock {
+    left: 18px;
+    bottom: 18px;
+    min-width: 172px;
+  }
 }
 
 @media (max-width: 720px) {
@@ -3985,6 +4078,14 @@ button {
 
   .home-hero__trail {
     justify-content: start;
+  }
+
+  .music-dock {
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    min-width: 0;
+    width: auto;
   }
 
   .home-intro__gallery {
