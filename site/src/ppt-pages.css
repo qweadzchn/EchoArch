@@ -827,6 +827,7 @@
   color: rgba(88, 61, 30, 0.84);
   background: rgba(227, 211, 180, 0.56);
   border: 1px solid rgba(167, 128, 73, 0.12);
+  white-space: nowrap;
 }
 
 .ea-guide__layout,
@@ -875,6 +876,13 @@
 .ea-guide-route {
   padding: 24px;
   border-radius: 24px;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.ea-guide-route h3 {
+  white-space: nowrap;
 }
 
 .ea-selector {

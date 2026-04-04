@@ -541,27 +541,42 @@ function App() {
       <button
         type="button"
         className={[
-          'music-dock',
+          'music-whisper',
           isMusicEnabled ? 'is-active' : '',
           isMusicPlaying ? 'is-playing' : '',
         ]
           .filter(Boolean)
           .join(' ')}
         aria-pressed={isMusicEnabled}
+        aria-label={
+          isMusicEnabled
+            ? isMusicPlaying
+              ? '环境音乐播放中，点击暂停'
+              : '环境音乐已开启，点击继续播放'
+            : '开启环境音乐'
+        }
+        title={
+          isMusicEnabled
+            ? isMusicPlaying
+              ? '泉声已起，点此暂歇'
+              : '泉声已记，点此续起'
+            : '轻启泉声'
+        }
         onClick={() => void handleToggleMusic()}
       >
-        <span className="music-dock__signal" aria-hidden="true" />
-        <div className="music-dock__copy">
-          <span>听泉入园</span>
-          <strong>{isMusicEnabled ? '朱廊行' : '轻开底乐'}</strong>
+        <span className="music-whisper__seal" aria-hidden="true">
+          <span className="music-whisper__glyph">泉</span>
+        </span>
+        <span className="music-whisper__hint" aria-hidden="true">
+          <strong>{isMusicEnabled ? '泉声已起' : '轻启泉声'}</strong>
           <small>
             {isMusicEnabled
               ? isMusicPlaying
-                ? '底乐已起，轻按可暂歇'
-                : '已记住偏好，点此续起'
-              : '默认静音，点此轻轻开乐'}
+                ? '再按可静音'
+                : '点此续起'
+              : '默认静音'}
           </small>
-        </div>
+        </span>
       </button>
     </main>
   )

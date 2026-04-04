@@ -4,6 +4,8 @@ import express from 'express'
 import OpenAI from 'openai'
 import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
+import { buildRetrievedMaterialText } from './guide-retrieval.ts'
+import { buildPublicMemoryPromptText } from './public-memory.ts'
 import { heritageSpots } from '../src/data/heritage-data.ts'
 import type { GuideAction, GuideRequest, GuideResponse, GuideRoutePreset } from '../src/guide/types.ts'
 import type { HeritageSpot } from '../src/types.ts'
@@ -19,11 +21,13 @@ const GUIDE_ALLOWED_ORIGINS = GUIDE_ALLOWED_ORIGIN.split(',')
   .filter(Boolean)
 const GUIDE_SERVER_TOKEN = process.env.GUIDE_SERVER_TOKEN?.trim() ?? ''
 const GUIDE_USE_CONVERSATION_STATE = process.env.GUIDE_USE_CONVERSATION_STATE !== 'false'
+const GUIDE_API_STYLE = process.env.GUIDE_API_STYLE?.trim().toLowerCase() ?? 'auto'
 const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL?.trim() ?? ''
 const OPENAI_GUIDE_MODEL = process.env.OPENAI_GUIDE_MODEL?.trim() || 'gpt-5-mini'
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY?.trim() ?? ''
 
 const GUIDE_SESSION_TTL_MS = 1000 * 60 * 45
+const GUIDE_CHAT_HISTORY_LIMIT = 12
 
 const guideModeSchema = z.enum(['welcome', 'story', 'route', 'image', 'ask'])
 
@@ -75,8 +79,16 @@ const guideRequestSchema = z.object({
 type GuideModelReply = z.infer<typeof guideReplySchema>
 type RawGuideAction = z.infer<typeof rawGuideActionSchema>
 
+type GuideApiStyle = 'responses' | 'chat'
+
+type GuideHistoryMessage = {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 type SessionState = {
-  previousResponseId: string
+  previousResponseId?: string
+  history?: GuideHistoryMessage[]
   updatedAt: number
 }
 
@@ -105,6 +117,31 @@ const openaiClient = OPENAI_API_KEY
       ...(OPENAI_BASE_URL ? { baseURL: OPENAI_BASE_URL } : {}),
     })
   : null
+
+function resolveGuideApiStyle(): GuideApiStyle {
+  if (GUIDE_API_STYLE === 'responses') {
+    return 'responses'
+  }
+
+  if (
+    GUIDE_API_STYLE === 'chat' ||
+    GUIDE_API_STYLE === 'chat.completions' ||
+    GUIDE_API_STYLE === 'chat_completions'
+  ) {
+    return 'chat'
+  }
+
+  const normalizedBaseUrl = OPENAI_BASE_URL.toLowerCase()
+  const normalizedModel = OPENAI_GUIDE_MODEL.toLowerCase()
+
+  if (normalizedBaseUrl.includes('deepseek.com') || normalizedModel.startsWith('deepseek-')) {
+    return 'chat'
+  }
+
+  return 'responses'
+}
+
+const guideApiStyle = resolveGuideApiStyle()
 
 function cleanupExpiredSessions() {
   const now = Date.now()
@@ -338,6 +375,13 @@ function scoreSpotForInput(spot: HeritageSpot, input: string, currentSpot: Herit
 
 function buildProjectMaterialText(request: GuideRequest) {
   const currentSpot = getCurrentSpot(request)
+
+  if (request.input) {
+    const preflightScore = currentSpot ? scoreSpotForInput(currentSpot, request.input, currentSpot) : 0
+    void preflightScore
+    return buildRetrievedMaterialText(request)
+  }
+
   const rankedSpots = heritageSpots
     .map((spot) => ({
       spot,
@@ -458,6 +502,7 @@ function buildGuideInput(request: GuideRequest) {
   const currentRoute = request.guideBundle.routeCatalog.find(
     (route) => route.id === request.activeRouteId,
   )
+  const sharedMemorySection = buildPublicMemoryPromptText(request)
 
   const currentSpotSection = currentSpot
     ? [
@@ -502,6 +547,9 @@ function buildGuideInput(request: GuideRequest) {
     `【项目内部资料摘录】`,
     buildProjectMaterialText(request),
     ``,
+    `【Shared visit memory】`,
+    sharedMemorySection,
+    ``,
     `【全站建筑索引】`,
     buildSpotCatalogText(),
     ``,
@@ -523,6 +571,74 @@ async function resolvePromptBundle(request: GuideRequest): Promise<PromptBundle>
     persona: request.guideBundle.persona.trim() || fallback.persona,
     experienceRules: request.guideBundle.experienceRules.trim() || fallback.experienceRules,
   }
+}
+
+function buildGuideInstructions(promptBundle: PromptBundle) {
+  return [
+    promptBundle.backendSystem.trim(),
+    '',
+    '【导游人设】',
+    promptBundle.persona.trim(),
+    '',
+    '【体验规则】',
+    promptBundle.experienceRules.trim(),
+  ].join('\n')
+}
+
+function buildGuideOutputContract() {
+  return [
+    'Return exactly one JSON object with fields:',
+    'mode,title,content,suggestedPrompts,suggestedSpotIds,actions',
+    'Do not output Markdown.',
+    'If no actions are needed, return an empty actions array.',
+  ].join('\n')
+}
+
+function buildGuideUserPrompt(request: GuideRequest) {
+  return [buildGuideInput(request), '', buildGuideOutputContract()].join('\n')
+}
+
+function getSessionState(sessionId: string) {
+  return sessions.get(sessionId) ?? { history: [], updatedAt: Date.now() }
+}
+
+function trimGuideHistory(history: GuideHistoryMessage[]) {
+  return history.slice(-GUIDE_CHAT_HISTORY_LIMIT)
+}
+
+function readChatCompletionText(content: unknown) {
+  if (typeof content === 'string') {
+    return content.trim()
+  }
+
+  if (Array.isArray(content)) {
+    const text = content
+      .map((part) => {
+        if (typeof part === 'string') {
+          return part
+        }
+
+        if (
+          part &&
+          typeof part === 'object' &&
+          'type' in part &&
+          'text' in part &&
+          (part as { type?: string }).type === 'text'
+        ) {
+          return String((part as { text?: string }).text ?? '')
+        }
+
+        return ''
+      })
+      .join('')
+      .trim()
+
+    if (text) {
+      return text
+    }
+  }
+
+  throw new Error('Guide model returned empty content.')
 }
 
 function sanitizeActions(
@@ -659,7 +775,7 @@ function sanitizeReply(
   }
 }
 
-async function generateGuideReply(request: GuideRequest): Promise<GuideResponse> {
+async function generateGuideReplyLegacy(request: GuideRequest): Promise<GuideResponse> {
   if (!openaiClient) {
     throw new Error('OPENAI_API_KEY is missing. Create .env.guide and set your key first.')
   }
@@ -704,6 +820,67 @@ async function generateGuideReply(request: GuideRequest): Promise<GuideResponse>
   return sanitizeReply(request, parseGuideReplyText(outputText))
 }
 
+async function generateGuideReply(request: GuideRequest): Promise<GuideResponse> {
+  if (!openaiClient) {
+    throw new Error('OPENAI_API_KEY is missing. Create .env.guide and set your key first.')
+  }
+
+  const client = openaiClient
+  const promptBundle = await resolvePromptBundle(request)
+  const sessionState = getSessionState(request.sessionId)
+  const instructions = buildGuideInstructions(promptBundle)
+  const userPrompt = buildGuideUserPrompt(request)
+
+  async function requestByResponsesApi() {
+    return generateGuideReplyLegacy(request)
+  }
+
+  async function requestByChatCompletionsApi() {
+    const priorMessages = GUIDE_USE_CONVERSATION_STATE ? (sessionState.history ?? []) : []
+    const response = await client.chat.completions.create({
+      model: OPENAI_GUIDE_MODEL,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: instructions },
+        ...priorMessages,
+        { role: 'user', content: userPrompt },
+      ],
+    })
+
+    const outputText = readChatCompletionText(response.choices[0]?.message?.content)
+
+    if (GUIDE_USE_CONVERSATION_STATE) {
+      sessions.set(request.sessionId, {
+        history: trimGuideHistory([
+          ...priorMessages,
+          { role: 'user', content: userPrompt },
+          { role: 'assistant', content: outputText },
+        ]),
+        updatedAt: Date.now(),
+      })
+    }
+
+    return sanitizeReply(request, parseGuideReplyText(outputText))
+  }
+
+  if (guideApiStyle === 'chat') {
+    return requestByChatCompletionsApi()
+  }
+
+  try {
+    return await requestByResponsesApi()
+  } catch (error) {
+    const status =
+      typeof error === 'object' && error && 'status' in error ? Number(error.status) : undefined
+
+    if (GUIDE_API_STYLE === 'auto' && status === 404) {
+      return requestByChatCompletionsApi()
+    }
+
+    throw error
+  }
+}
+
 const app = express()
 
 app.use(
@@ -727,6 +904,7 @@ app.get('/api/guide/health', (_request, response) => {
     configured: Boolean(OPENAI_API_KEY),
     baseUrl: OPENAI_BASE_URL || 'https://api.openai.com/v1',
     model: OPENAI_GUIDE_MODEL,
+    apiStyle: guideApiStyle,
     usesConversationState: GUIDE_USE_CONVERSATION_STATE,
     requiresBearerToken: Boolean(GUIDE_SERVER_TOKEN),
   })

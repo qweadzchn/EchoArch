@@ -1,0 +1,152 @@
+{
+  "version": "0.1.0",
+  "updated_at": "2026-04-04T00:00:00+08:00",
+  "window_days": 30,
+  "scene_hint_profiles": [
+    {
+      "scene_id": "overview:first-visit",
+      "trigger": "idle_on_overview",
+      "hint_text": "Start from the north-shore gate, then turn toward the lake core.",
+      "cooldown_minutes": 30,
+      "confidence": 0.45,
+      "evidence_count": 0,
+      "last_seen_at": null
+    },
+    {
+      "scene_id": "spot:image-focus",
+      "trigger": "image_hover_without_action",
+      "hint_text": "Look at the near structure first, then compare it with the surrounding scene.",
+      "cooldown_minutes": 20,
+      "confidence": 0.45,
+      "evidence_count": 0,
+      "last_seen_at": null
+    },
+    {
+      "scene_id": "spot:route-decision",
+      "trigger": "asking_where_to_go_next",
+      "hint_text": "Give one next stop with a reason, instead of listing many choices.",
+      "cooldown_minutes": 20,
+      "confidence": 0.62,
+      "evidence_count": 0,
+      "last_seen_at": null
+    }
+  ],
+  "hot_questions_by_spot": [
+    {
+      "spot_id": "weiyuan-temple",
+      "question_cluster": "axial relation with lake and mountain",
+      "answer_strategy": "Start from spatial position, then explain why it works as the visual opening point of the whole complex.",
+      "frequency_30d": 19,
+      "confidence": 0.78,
+      "evidence_count": 0,
+      "last_seen_at": null
+    },
+    {
+      "spot_id": "qinghui-pavilion",
+      "question_cluster": "why it feels like the center of the whole waterscape",
+      "answer_strategy": "Explain it through bridge-water-pavilion composition before going into history.",
+      "frequency_30d": 16,
+      "confidence": 0.74,
+      "evidence_count": 0,
+      "last_seen_at": null
+    },
+    {
+      "spot_id": "boat-house",
+      "question_cluster": "what is special about the yunshi in the boat-house scene",
+      "answer_strategy": "Describe the visual texture and symbolic role of the stone, then connect it back to the waterside setting.",
+      "frequency_30d": 12,
+      "confidence": 0.71,
+      "evidence_count": 0,
+      "last_seen_at": null
+    },
+    {
+      "spot_id": "stele-corridor",
+      "question_cluster": "which stele should be looked at first",
+      "answer_strategy": "Do not list every stele at once. Give one entry point and then suggest a second comparison target.",
+      "frequency_30d": 14,
+      "confidence": 0.69,
+      "evidence_count": 0,
+      "last_seen_at": null
+    }
+  ],
+  "common_confusions": [
+    {
+      "scene_id": "overview:first-visit",
+      "confusion_type": "choice_overload",
+      "symptom": "The visitor stays on the overview for a while and does not know where to begin.",
+      "recommended_hint": "Offer a single calm entry route and recommend starting with weiyuan-temple.",
+      "frequency_30d": 26,
+      "confidence": 0.81,
+      "evidence_count": 0,
+      "last_seen_at": null
+    },
+    {
+      "scene_id": "spot:weiyuan-temple",
+      "confusion_type": "isolated_reading",
+      "symptom": "The visitor reads the temple as one building and misses its relation to the lake, the mountain, and the entry sequence.",
+      "recommended_hint": "Reconnect the temple to the north-shore gate and the lake-facing opening before giving detailed facts.",
+      "frequency_30d": 18,
+      "confidence": 0.76,
+      "evidence_count": 0,
+      "last_seen_at": null
+    },
+    {
+      "scene_id": "spot:stele-corridor",
+      "confusion_type": "too_many_objects",
+      "symptom": "The visitor sees many tablets at once and cannot tell where to look first.",
+      "recommended_hint": "Offer one first stele and one comparison stele instead of a long catalog.",
+      "frequency_30d": 15,
+      "confidence": 0.73,
+      "evidence_count": 0,
+      "last_seen_at": null
+    }
+  ],
+  "route_acceptance_patterns": [
+    {
+      "route_id": "first-arrival",
+      "entry_scene": "overview:first-visit",
+      "best_intro_style": "soft opening with one clear first stop and a reason tied to the whole-site composition",
+      "acceptance_rate": 0.72,
+      "best_next_stop": "weiyuan-temple",
+      "confidence": 0.68,
+      "evidence_count": 0,
+      "last_seen_at": null
+    },
+    {
+      "route_id": "waterfront",
+      "entry_scene": "overview:returning",
+      "best_intro_style": "invite the visitor to follow the water rhythm and let the bridge-pavilion sequence lead the scene",
+      "acceptance_rate": 0.61,
+      "best_next_stop": "qinghui-pavilion",
+      "confidence": 0.6,
+      "evidence_count": 0,
+      "last_seen_at": null
+    }
+  ],
+  "blind_spots": [
+    {
+      "scene_id": "spot:weiyuan-temple",
+      "overlooked_target": "its role between mountain and lake, not only the front hall itself",
+      "best_recovery_hint": "Ask the visitor to imagine the north-shore approach and then read the temple as a hinge in the whole composition.",
+      "confidence": 0.77,
+      "evidence_count": 0,
+      "last_seen_at": null
+    },
+    {
+      "scene_id": "spot:boat-house",
+      "overlooked_target": "the yunshi detail and how it changes the boat-house atmosphere",
+      "best_recovery_hint": "Pull attention from the facade inward to the stone detail and then back out to the waterside mood.",
+      "confidence": 0.74,
+      "evidence_count": 0,
+      "last_seen_at": null
+    },
+    {
+      "scene_id": "spot:qinghui-pavilion",
+      "overlooked_target": "the bridge-water-pavilion sequence as one scene rather than three separate objects",
+      "best_recovery_hint": "Guide the eye from bridge to pavilion to reflection, then explain the historical layer.",
+      "confidence": 0.7,
+      "evidence_count": 0,
+      "last_seen_at": null
+    }
+  ]
+}
