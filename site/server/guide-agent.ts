@@ -22,6 +22,8 @@ const GUIDE_ALLOWED_ORIGINS = GUIDE_ALLOWED_ORIGIN.split(',')
 const GUIDE_SERVER_TOKEN = process.env.GUIDE_SERVER_TOKEN?.trim() ?? ''
 const GUIDE_USE_CONVERSATION_STATE = process.env.GUIDE_USE_CONVERSATION_STATE !== 'false'
 const GUIDE_API_STYLE = process.env.GUIDE_API_STYLE?.trim().toLowerCase() ?? 'auto'
+const GUIDE_DEEPSEEK_THINKING =
+  process.env.GUIDE_DEEPSEEK_THINKING?.trim().toLowerCase() ?? 'disabled'
 const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL?.trim() ?? ''
 const OPENAI_GUIDE_MODEL = process.env.OPENAI_GUIDE_MODEL?.trim() || 'gpt-5-mini'
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY?.trim() ?? ''
@@ -142,6 +144,21 @@ function resolveGuideApiStyle(): GuideApiStyle {
 }
 
 const guideApiStyle = resolveGuideApiStyle()
+
+function isDeepSeekGuideProvider() {
+  const normalizedBaseUrl = OPENAI_BASE_URL.toLowerCase()
+  const normalizedModel = OPENAI_GUIDE_MODEL.toLowerCase()
+
+  return normalizedBaseUrl.includes('deepseek.com') || normalizedModel.startsWith('deepseek-')
+}
+
+function resolveDeepSeekThinkingType() {
+  if (GUIDE_DEEPSEEK_THINKING === 'enabled' || GUIDE_DEEPSEEK_THINKING === 'true') {
+    return 'enabled'
+  }
+
+  return 'disabled'
+}
 
 function cleanupExpiredSessions() {
   const now = Date.now()
@@ -837,6 +854,9 @@ async function generateGuideReply(request: GuideRequest): Promise<GuideResponse>
 
   async function requestByChatCompletionsApi() {
     const priorMessages = GUIDE_USE_CONVERSATION_STATE ? (sessionState.history ?? []) : []
+    const providerOptions = isDeepSeekGuideProvider()
+      ? { thinking: { type: resolveDeepSeekThinkingType() } }
+      : {}
     const response = await client.chat.completions.create({
       model: OPENAI_GUIDE_MODEL,
       response_format: { type: 'json_object' },
@@ -845,6 +865,7 @@ async function generateGuideReply(request: GuideRequest): Promise<GuideResponse>
         ...priorMessages,
         { role: 'user', content: userPrompt },
       ],
+      ...providerOptions,
     })
 
     const outputText = readChatCompletionText(response.choices[0]?.message?.content)

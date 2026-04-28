@@ -42,7 +42,10 @@ Copy-Item .env.guide.example .env.guide
 
 ```env
 OPENAI_API_KEY=你的_OpenAI_Key
-OPENAI_GUIDE_MODEL=gpt-5-mini
+OPENAI_BASE_URL=https://api.deepseek.com
+OPENAI_GUIDE_MODEL=deepseek-v4-flash
+GUIDE_API_STYLE=auto
+GUIDE_DEEPSEEK_THINKING=disabled
 GUIDE_API_PORT=8787
 GUIDE_ALLOWED_ORIGIN=http://127.0.0.1:5173,http://localhost:5173
 GUIDE_SERVER_TOKEN=
