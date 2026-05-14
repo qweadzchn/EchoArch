@@ -3,6 +3,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type FormEvent,
   type RefObject,
 } from 'react'
 import { guideProfile, guideRoutes } from './guide/content'
@@ -44,6 +45,143 @@ type OverviewPageProps = {
 
 type GuidePageProps = {
   onNavigate: (path: string) => void
+}
+
+type VisitBookingPageProps = {
+  initialRouteId?: string
+  onNavigate: (path: string) => void
+}
+
+type VisitTimeSlot = {
+  id: string
+  label: string
+  flow: '舒缓' | '适中' | '较忙'
+  note: string
+}
+
+type VisitBookingIntent = {
+  id: string
+  routeId: string
+  visitDate: string
+  timeSlotId: string
+  visitorCount: number
+  contact: string
+  note: string
+  createdAt: string
+}
+
+const VISIT_BOOKING_STORAGE_KEY = 'echoarch.visit-booking-intents'
+
+const visitTimeSlots: VisitTimeSlot[] = [
+  {
+    id: 'early',
+    label: '09:00-10:30',
+    flow: '舒缓',
+    note: '适合从第一站慢慢入园，讲解节奏更完整。',
+  },
+  {
+    id: 'midday',
+    label: '10:30-12:00',
+    flow: '较忙',
+    note: '更适合短线参观，建议提前定好首站。',
+  },
+  {
+    id: 'afternoon',
+    label: '14:00-15:30',
+    flow: '适中',
+    note: '适合书院、湖心或碑廊方向分流游览。',
+  },
+  {
+    id: 'late',
+    label: '15:30-17:00',
+    flow: '舒缓',
+    note: '适合慢走收尾，湖心与西山线更从容。',
+  },
+]
+
+const visitRouteHints: Record<
+  string,
+  {
+    start: string
+    recommendedSlotId: string
+    dispersal: string
+    wayfinding: string
+  }
+> = {
+  'first-arrival': {
+    start: '卫源庙',
+    recommendedSlotId: 'early',
+    dispersal: '建议早段入园，从北岸门庭先分流，避开总览图附近集中停留。',
+    wayfinding: '到园后先认卫源庙，再顺着涌金亭、乾隆行宫完成入园线。',
+  },
+  waterfront: {
+    start: '清晖阁',
+    recommendedSlotId: 'late',
+    dispersal: '湖心亭桥容易聚集拍照，建议错开上午集中时段，沿水面缓行。',
+    wayfinding: '到园后先看清晖阁，再转湖心亭、钓鱼亭和船房。',
+  },
+  academy: {
+    start: '南大厅',
+    recommendedSlotId: 'afternoon',
+    dispersal: '书院行宫线更适合下午承接客流，从湖心方向自然分散。',
+    wayfinding: '到园后先到南大厅，再看乾隆行宫和肺石的书院旧脉。',
+  },
+  'west-mountain': {
+    start: '邵夫子祠',
+    recommendedSlotId: 'early',
+    dispersal: '西山线适合喜欢慢游的游客，早段上行能减轻主游线压力。',
+    wayfinding: '到园后从邵夫子祠起步，沿安乐窝、碑廊、饿夫墓慢慢展开。',
+  },
+}
+
+function resolveVisitRouteId(routeId: string | undefined): string {
+  if (routeId && guideRoutes.some((route) => route.id === routeId)) {
+    return routeId
+  }
+
+  return guideRoutes[0]?.id ?? 'first-arrival'
+}
+
+function getDateInputValue(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function getDefaultVisitDate() {
+  const nextDate = new Date()
+  nextDate.setDate(nextDate.getDate() + 1)
+  return getDateInputValue(nextDate)
+}
+
+function createVisitBookingId() {
+  return `BQ-${Date.now().toString(36).toUpperCase().slice(-5)}`
+}
+
+function readStoredVisitBookings() {
+  try {
+    const raw = window.localStorage.getItem(VISIT_BOOKING_STORAGE_KEY)
+
+    if (!raw) {
+      return []
+    }
+
+    const parsed = JSON.parse(raw)
+
+    return Array.isArray(parsed) ? (parsed as VisitBookingIntent[]) : []
+  } catch {
+    return []
+  }
+}
+
+function storeVisitBooking(intent: VisitBookingIntent) {
+  const current = readStoredVisitBookings()
+  window.localStorage.setItem(
+    VISIT_BOOKING_STORAGE_KEY,
+    JSON.stringify([intent, ...current].slice(0, 8)),
+  )
 }
 
 export function LandingPage({ onNavigate, onOpenGuide }: LandingPageProps) {
@@ -335,6 +473,9 @@ export function OverviewPage({
                 >
                   请导游带路
                 </button>
+                <button type="button" className="is-ghost" onClick={() => onNavigate('/visit')}>
+                  预约到访
+                </button>
               </div>
             </div>
           </div>
@@ -556,11 +697,276 @@ export function GuidePage({ onNavigate }: GuidePageProps) {
                       直接前往首站
                     </button>
                   ) : null}
+                  <button
+                    type="button"
+                    className="is-ghost"
+                    onClick={() => onNavigate(`/visit/${route.id}`)}
+                  >
+                    线下走这条线
+                  </button>
                 </div>
               </article>
             )
           })}
         </div>
+      </section>
+    </div>
+  )
+}
+
+export function VisitBookingPage({ initialRouteId, onNavigate }: VisitBookingPageProps) {
+  const [selectedRouteId, setSelectedRouteId] = useState(() => resolveVisitRouteId(initialRouteId))
+  const [visitDate, setVisitDate] = useState(() => getDefaultVisitDate())
+  const [selectedSlotId, setSelectedSlotId] = useState(() => {
+    const routeId = resolveVisitRouteId(initialRouteId)
+    return visitRouteHints[routeId]?.recommendedSlotId ?? visitTimeSlots[0]?.id ?? ''
+  })
+  const [visitorCount, setVisitorCount] = useState(2)
+  const [contact, setContact] = useState('')
+  const [note, setNote] = useState('')
+  const [submittedIntent, setSubmittedIntent] = useState<VisitBookingIntent | null>(null)
+
+  const selectedRoute = guideRoutes.find((route) => route.id === selectedRouteId) ?? guideRoutes[0]
+  const selectedHint = visitRouteHints[selectedRoute?.id ?? ''] ?? visitRouteHints['first-arrival']
+  const selectedSlot =
+    visitTimeSlots.find((slot) => slot.id === selectedSlotId) ?? visitTimeSlots[0]
+  const routeSpots = selectedRoute
+    ? selectedRoute.spotIds
+        .map((spotId) => spotById.get(spotId))
+        .filter((spot): spot is NonNullable<typeof spot> => spot !== undefined)
+    : []
+  const isRecommendedSlot = selectedSlot?.id === selectedHint.recommendedSlotId
+  const todayValue = getDateInputValue(new Date())
+
+  function handleRouteSelect(routeId: string) {
+    setSelectedRouteId(routeId)
+    setSelectedSlotId(visitRouteHints[routeId]?.recommendedSlotId ?? selectedSlotId)
+    setSubmittedIntent(null)
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!selectedRoute || !selectedSlot) {
+      return
+    }
+
+    const intent: VisitBookingIntent = {
+      id: createVisitBookingId(),
+      routeId: selectedRoute.id,
+      visitDate,
+      timeSlotId: selectedSlot.id,
+      visitorCount,
+      contact: contact.trim(),
+      note: note.trim(),
+      createdAt: new Date().toISOString(),
+    }
+
+    storeVisitBooking(intent)
+    setSubmittedIntent(intent)
+  }
+
+  return (
+    <div className="ea-route ea-visit">
+      <section className="ea-page-shell ea-banner ea-banner--visit">
+        <Breadcrumbs
+          items={[{ label: '首页', path: '/' }, { label: '预约到访' }]}
+          onNavigate={onNavigate}
+        />
+        <div className="ea-banner__copy">
+          <span className="ea-kicker">实地导览预约</span>
+          <h1>选好路线再出发</h1>
+          <p>
+            先定路线、时段和首站，到园后直接接上智能导览，少一点临时找路的犹豫。
+          </p>
+          <div className="ea-actions">
+            <button type="button" onClick={() => onNavigate('/guide')}>
+              先听导游推荐
+            </button>
+            <button type="button" className="is-secondary" onClick={() => onNavigate('/overview')}>
+              回地图辨路
+            </button>
+          </div>
+        </div>
+        <aside className="ea-visit__hero-note" aria-label="预约到访说明">
+          <span>到访小笺</span>
+          <strong>路线在前，到访在后</strong>
+          <p>先把想走的线收好，再按更从容的时段入园。</p>
+          <div>
+            <small>分流时段</small>
+            <small>首站提示</small>
+            <small>路线续导</small>
+          </div>
+        </aside>
+      </section>
+
+      <section className="ea-page-shell ea-visit__layout">
+        <form className="ea-panel ea-visit__planner" onSubmit={handleSubmit}>
+          <div className="ea-visit__section-head">
+            <span>路线选择</span>
+            <h2>先定一条不会迷路的走法</h2>
+          </div>
+
+          <div className="ea-visit__route-grid">
+            {guideRoutes.map((route) => (
+              <button
+                key={route.id}
+                type="button"
+                className={route.id === selectedRouteId ? 'is-active' : undefined}
+                onClick={() => handleRouteSelect(route.id)}
+              >
+                <small>{route.subtitle}</small>
+                <strong>{route.title}</strong>
+                <span>{route.spotIds.length} 站</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="ea-visit__fields">
+            <label>
+              <span>到访日期</span>
+              <input
+                type="date"
+                min={todayValue}
+                value={visitDate}
+                onChange={(event) => {
+                  setVisitDate(event.target.value)
+                  setSubmittedIntent(null)
+                }}
+                required
+              />
+            </label>
+
+            <label>
+              <span>同行人数</span>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={visitorCount}
+                onChange={(event) => {
+                  setVisitorCount(Number(event.target.value))
+                  setSubmittedIntent(null)
+                }}
+                required
+              />
+            </label>
+
+            <label>
+              <span>联系方式</span>
+              <input
+                type="text"
+                value={contact}
+                placeholder="手机号或微信号"
+                onChange={(event) => {
+                  setContact(event.target.value)
+                  setSubmittedIntent(null)
+                }}
+                required
+              />
+            </label>
+          </div>
+
+          <div className="ea-visit__section-head is-compact">
+            <span>分流时段</span>
+            <h2>优先选择更从容的入园时间</h2>
+          </div>
+
+          <div className="ea-visit__slot-grid" role="radiogroup" aria-label="选择到访时段">
+            {visitTimeSlots.map((slot) => (
+              <button
+                key={slot.id}
+                type="button"
+                className={[
+                  slot.id === selectedSlotId ? 'is-active' : '',
+                  slot.id === selectedHint.recommendedSlotId ? 'is-recommended' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                onClick={() => {
+                  setSelectedSlotId(slot.id)
+                  setSubmittedIntent(null)
+                }}
+              >
+                <strong>{slot.label}</strong>
+                <span>{slot.flow}</span>
+                <p>{slot.note}</p>
+              </button>
+            ))}
+          </div>
+
+          <label className="ea-visit__note">
+            <span>补充说明</span>
+            <textarea
+              value={note}
+              rows={3}
+              placeholder="例如：带老人同行、想重点看碑刻、希望慢一点讲"
+              onChange={(event) => {
+                setNote(event.target.value)
+                setSubmittedIntent(null)
+              }}
+            />
+          </label>
+
+          <div className="ea-visit__submit">
+            <button type="submit">提交到访意向</button>
+            <p>
+              {isRecommendedSlot
+                ? '当前时段与路线分流建议匹配。'
+                : `这条线更推荐 ${visitTimeSlots.find((slot) => slot.id === selectedHint.recommendedSlotId)?.label ?? '较舒缓时段'}，现场会更从容。`}
+            </p>
+          </div>
+        </form>
+
+        <aside className="ea-panel ea-visit__side">
+          <section className="ea-visit-card">
+            <span>路线小卡</span>
+            <h2>{selectedRoute?.title}</h2>
+            <p>{selectedRoute?.description}</p>
+            <div className="ea-visit-card__stops">
+              {routeSpots.map((spot, index) => (
+                <button
+                  key={spot.id}
+                  type="button"
+                  onClick={() => onNavigate(getSpotPath(spot.id))}
+                >
+                  <i>{String(index + 1).padStart(2, '0')}</i>
+                  <strong>{spot.name}</strong>
+                  <small>{spot.region}</small>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="ea-visit-card is-soft">
+            <span>分流建议</span>
+            <h2>从 {selectedHint.start} 起步</h2>
+            <p>{selectedHint.dispersal}</p>
+            <p>{selectedHint.wayfinding}</p>
+          </section>
+
+          {submittedIntent ? (
+            <section className="ea-visit-confirm">
+              <span>预约意向已记录</span>
+              <strong>{submittedIntent.id}</strong>
+              <p>
+                {submittedIntent.visitDate}，{selectedSlot?.label}，{visitorCount} 人。
+                到园后可先打开智能导览，按「{selectedRoute?.title}」继续走。
+              </p>
+              <button
+                type="button"
+                onClick={() =>
+                  openGuideCompanion({
+                    mode: 'route',
+                    prompt: `我已经预约了${selectedRoute?.title}，到园后请按这条线提醒我先从哪里走。`,
+                  })
+                }
+              >
+                让导游记住这条线
+              </button>
+            </section>
+          ) : null}
+        </aside>
       </section>
     </div>
   )

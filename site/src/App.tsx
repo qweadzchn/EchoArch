@@ -15,7 +15,7 @@ import {
   SteleDetailPage,
   SteleHubPage,
 } from './ppt-culture-pages'
-import { GuidePage, LandingPage, OverviewPage } from './ppt-entry-pages'
+import { GuidePage, LandingPage, OverviewPage, VisitBookingPage } from './ppt-entry-pages'
 import { ScrollCue, SiteHeader } from './ppt-shell'
 import { StoryDetailPage, StoryHubPage } from './ppt-story-pages'
 import {
@@ -414,6 +414,15 @@ function App() {
       break
     case 'guide':
       page = <GuidePage onNavigate={navigateTo} />
+      break
+    case 'visit':
+      page = (
+        <VisitBookingPage
+          key={route.routeId ?? 'visit'}
+          initialRouteId={route.routeId}
+          onNavigate={navigateTo}
+        />
+      )
       break
     case 'stories':
       page = (

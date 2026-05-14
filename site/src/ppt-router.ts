@@ -46,9 +46,10 @@ export type AppRoute =
   | { page: 'era'; eraId: string }
   | { page: 'steles' }
   | { page: 'stele'; categoryId: string }
+  | { page: 'visit'; routeId?: string }
   | { page: 'spot'; spotId: string }
 
-export type NavKey = 'home' | 'overview' | 'guide' | 'stories' | 'culture'
+export type NavKey = 'home' | 'overview' | 'guide' | 'stories' | 'culture' | 'visit'
 
 export type SpotLookup = Map<string, SpotWithLayout>
 export type StoryLookup = Map<string, StoryArticle>
@@ -100,6 +101,7 @@ export const headerNavItems: Array<{
   { id: 'guide', label: '智能导览', path: '/guide' },
   { id: 'stories', label: '鸾翔凤集', path: '/stories' },
   { id: 'culture', label: '文脉流长', path: '/academy' },
+  { id: 'visit', label: '预约到访', path: '/visit' },
 ]
 
 export function formatOrder(value: number) {
@@ -226,6 +228,8 @@ export function readRouteFromHash(): AppRoute {
       return segmentId && steleById.has(segmentId)
         ? { page: 'stele', categoryId: segmentId }
         : { page: 'steles' }
+    case 'visit':
+      return { page: 'visit', routeId: segmentId }
     case 'spot':
       return segmentId && spotById.has(segmentId)
         ? { page: 'spot', spotId: segmentId }
@@ -252,6 +256,8 @@ export function getActiveNav(route: AppRoute): NavKey {
     case 'steles':
     case 'stele':
       return 'culture'
+    case 'visit':
+      return 'visit'
   }
 }
 

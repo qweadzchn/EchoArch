@@ -3423,6 +3423,8 @@ button {
 .guide-footprint:focus-visible,
 .guide-route__stop:hover,
 .guide-route__stop:focus-visible,
+.guide-route__booking button:hover,
+.guide-route__booking button:focus-visible,
 .guide-action-card:hover,
 .guide-action-card:focus-visible,
 .guide-sheet__followups button:hover,
@@ -3499,6 +3501,52 @@ button {
 
 .guide-route__alternates {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.guide-route__booking {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(96, 70, 38, 0.14);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top right, rgba(113, 129, 91, 0.14), transparent 30%),
+    linear-gradient(180deg, rgba(255, 250, 241, 0.96), rgba(239, 229, 209, 0.9));
+}
+
+.guide-route__booking div {
+  display: grid;
+  gap: 4px;
+}
+
+.guide-route__booking span {
+  color: rgba(88, 62, 35, 0.72);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.guide-route__booking strong {
+  color: #432d1a;
+  line-height: 1.35;
+}
+
+.guide-route__booking button {
+  appearance: none;
+  border: 1px solid rgba(113, 129, 91, 0.28);
+  border-radius: 999px;
+  padding: 10px 13px;
+  color: #fff8ee;
+  background: linear-gradient(180deg, #71815b, #596948);
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 12px 22px rgba(43, 29, 14, 0.12);
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    border-color 200ms ease;
 }
 
 .guide-sheet__meta {
@@ -4273,6 +4321,15 @@ button {
 
   .guide-route__alternates {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .guide-route__booking {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .guide-route__booking button {
+    width: 100%;
   }
 
   .guide-route-card {

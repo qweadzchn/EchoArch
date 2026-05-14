@@ -1081,6 +1081,11 @@ export function GuideCompanion({
     })
   }
 
+  function openVisitBooking(routeId: string) {
+    collapseGuideDock()
+    window.location.hash = `/visit/${encodeURIComponent(routeId)}`
+  }
+
   function handleTogglePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
     if (isCompactViewport || event.button !== 0) {
       return
@@ -1212,36 +1217,48 @@ export function GuideCompanion({
             </div>
 
             {activeRoute ? (
-              <div className="guide-route__stops">
-                {routeSpots.map((spot, index) => {
-                  const isCurrent = currentSpot?.id === spot.id
-                  const isVisited = visitedSpotIds.includes(spot.id)
+              <>
+                <div className="guide-route__stops">
+                  {routeSpots.map((spot, index) => {
+                    const isCurrent = currentSpot?.id === spot.id
+                    const isVisited = visitedSpotIds.includes(spot.id)
 
-                  return (
-                    <button
-                      key={spot.id}
-                      type="button"
-                      className={[
-                        'guide-route__stop',
-                        isCurrent ? 'is-current' : '',
-                        isVisited ? 'is-visited' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      onClick={() => travelToSpot(spot.id)}
-                    >
-                      <span className="guide-route__order">
-                        {String(index + 1).padStart(2, '0')}
-                      </span>
-                      <div className="guide-route__stop-copy">
-                        <strong>{spot.name}</strong>
-                        <small>{spot.region}</small>
-                      </div>
-                      <em>{isCurrent ? '此刻' : isVisited ? '已至' : '待行'}</em>
-                    </button>
-                  )
-                })}
-              </div>
+                    return (
+                      <button
+                        key={spot.id}
+                        type="button"
+                        className={[
+                          'guide-route__stop',
+                          isCurrent ? 'is-current' : '',
+                          isVisited ? 'is-visited' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        onClick={() => travelToSpot(spot.id)}
+                      >
+                        <span className="guide-route__order">
+                          {String(index + 1).padStart(2, '0')}
+                        </span>
+                        <div className="guide-route__stop-copy">
+                          <strong>{spot.name}</strong>
+                          <small>{spot.region}</small>
+                        </div>
+                        <em>{isCurrent ? '此刻' : isVisited ? '已至' : '待行'}</em>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="guide-route__booking">
+                  <div>
+                    <span>线下到访</span>
+                    <strong>按这条线预约，入园后不再临时找路</strong>
+                  </div>
+                  <button type="button" onClick={() => openVisitBooking(activeRoute.id)}>
+                    预约这条路线
+                  </button>
+                </div>
+              </>
             ) : (
                 <div className="guide-route__cards">
                   {visibleRoutes.map((route, index) => (
