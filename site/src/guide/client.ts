@@ -109,6 +109,13 @@ export async function requestGuideReply(
   request: Omit<GuideRequest, 'guideBundle'>,
 ): Promise<GuideResponse> {
   const payload: GuideRequest = {
+    inputType: 'text',
+    mediaRefs: [],
+    clientCapabilities: {
+      voiceInput: true,
+      imageInput: true,
+      tts: typeof window !== 'undefined' && 'speechSynthesis' in window,
+    },
     ...request,
     guideBundle: getGuideBundle(),
   }
@@ -126,6 +133,7 @@ export async function requestGuideReply(
   try {
     response = await fetch(apiUrl, {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...(apiToken ? { Authorization: `Bearer ${apiToken}` } : {}),

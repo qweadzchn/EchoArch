@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  visitor
+  admin
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  cancelled
+  completed
+}
+
+enum MediaKind {
+  image
+  audio
+  tts
+}
+
+model User {
+  id           String         @id
+  account      String         @unique
+  displayName  String
+  email        String?        @unique
+  phone        String?        @unique
+  passwordHash String
+  role         UserRole       @default(visitor)
+  bookings     VisitBooking[]
+  mediaUploads MediaUpload[]
+  guideSessions GuideSession[]
+  guideMessages GuideMessage[]
+  publicMemoryEvents PublicMemoryEvent[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model VisitBooking {
+  id            String        @id
+  bookingNo     String        @unique
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  routeId       String
+  routeTitle    String
+  visitDate     DateTime
+  timeSlotId    String
+  timeSlotLabel String
+  visitorCount  Int
+  contact       String
+  note          String
+  status        BookingStatus @default(pending)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([visitDate])
+  @@index([status])
+}
+
+model MediaUpload {
+  id             String   @id
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id])
+  kind           MediaKind
+  filename       String
+  originalName   String
+  mimeType       String
+  size           Int
+  url            String
+  analysis       String?
+  visualGrounding Json
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([kind])
+}
+
+model GuideSession {
+  id             String   @id
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id])
+  anonymousId    String?
+  summary        String?
+  currentRouteId String?
+  visitedSpotIds Json
+  messages       GuideMessage[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@index([anonymousId])
+}
+
+model GuideMessage {
+  id        String       @id
+  sessionId String
+  session   GuideSession @relation(fields: [sessionId], references: [id])
+  userId    String?
+  user      User?        @relation(fields: [userId], references: [id])
+  role      String
+  mode      String
+  content   String
+  mediaRefs Json
+  createdAt DateTime     @default(now())
+
+  @@index([sessionId])
+  @@index([userId])
+}
+
+model PublicMemoryEvent {
+  id        String   @id
+  sessionId String?
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  eventType String
+  sceneId   String?
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([eventType])
+}

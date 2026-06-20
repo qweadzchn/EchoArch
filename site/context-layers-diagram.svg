@@ -1,0 +1,146 @@
+<svg width="1600" height="960" viewBox="0 0 1600 960" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="960" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8F4EA"/>
+      <stop offset="1" stop-color="#EEF2F3"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#FFFFFF" stop-opacity="0.96"/>
+      <stop offset="1" stop-color="#F8FBFC" stop-opacity="0.98"/>
+    </linearGradient>
+    <linearGradient id="stack" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFFDF8"/>
+      <stop offset="1" stop-color="#F4F8FA"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#27343B" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6A7F88"/>
+    </marker>
+    <style>
+      .title { font: 700 42px 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; fill: #20333A; }
+      .subtitle { font: 500 20px 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; fill: #5B6D73; }
+      .section { font: 700 18px 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; fill: #29424B; letter-spacing: 0.5px; }
+      .body { font: 500 19px 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; fill: #2E434B; }
+      .small { font: 500 15px 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; fill: #5F7178; }
+      .chip { font: 700 14px 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; fill: #35515A; }
+      .layerTitle { font: 700 22px 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; fill: #22373F; }
+      .layerText { font: 500 17px 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; fill: #4D6168; }
+      .note { font: 600 16px 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; fill: #6B7E85; }
+      .mono { font: 700 15px Consolas, 'Courier New', monospace; fill: #365057; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="960" fill="url(#bg)"/>
+  <circle cx="1400" cy="120" r="180" fill="#DCECEF" fill-opacity="0.45"/>
+  <circle cx="128" cy="820" r="180" fill="#E9E0CF" fill-opacity="0.35"/>
+  <circle cx="820" cy="900" r="120" fill="#D8E8E6" fill-opacity="0.32"/>
+
+  <text x="80" y="92" class="title">智能导览上下文分层披露机制</text>
+  <text x="80" y="128" class="subtitle">固定披露骨架上下文，按需披露知识细节，增量续接会话记忆</text>
+
+  <g transform="translate(1100 56)">
+    <rect x="0" y="0" width="104" height="34" rx="17" fill="#F9E9BC"/>
+    <text x="52" y="22" text-anchor="middle" class="chip">固定披露</text>
+    <rect x="116" y="0" width="104" height="34" rx="17" fill="#DCECF5"/>
+    <text x="168" y="22" text-anchor="middle" class="chip">局部披露</text>
+    <rect x="232" y="0" width="104" height="34" rx="17" fill="#E3F1E4"/>
+    <text x="284" y="22" text-anchor="middle" class="chip">按需披露</text>
+    <rect x="348" y="0" width="104" height="34" rx="17" fill="#F0E4F4"/>
+    <text x="400" y="22" text-anchor="middle" class="chip">增量续接</text>
+    <rect x="464" y="0" width="116" height="34" rx="17" fill="#F3E7DA"/>
+    <text x="522" y="22" text-anchor="middle" class="chip">场景筛选</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="80" y="200" width="300" height="560" rx="28" fill="url(#panel)" stroke="#D8E2E5"/>
+    <text x="116" y="252" class="section">前端导览请求</text>
+    <rect x="116" y="284" width="228" height="88" rx="20" fill="#FCF4DE"/>
+    <text x="140" y="320" class="layerTitle">用户输入</text>
+    <text x="140" y="350" class="layerText">问题、指令、想看的内容</text>
+
+    <rect x="116" y="392" width="228" height="124" rx="20" fill="#EAF4F8"/>
+    <text x="140" y="428" class="layerTitle">页面状态</text>
+    <text x="140" y="458" class="layerText">当前页面 / 当前景点</text>
+    <text x="140" y="486" class="layerText">已访问节点 / 当前路线</text>
+
+    <rect x="116" y="536" width="228" height="90" rx="20" fill="#EEF3E3"/>
+    <text x="140" y="572" class="layerTitle">导览模式</text>
+    <text x="140" y="602" class="mono">welcome / story / route / image / ask</text>
+
+    <rect x="116" y="646" width="228" height="82" rx="20" fill="#F5EDF8"/>
+    <text x="140" y="682" class="layerTitle">会话标识</text>
+    <text x="140" y="712" class="layerText">sessionId 与短时会话延续</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="450" y="170" width="640" height="650" rx="30" fill="url(#stack)" stroke="#D8E2E5"/>
+    <text x="490" y="222" class="section">上下文编排器</text>
+    <text x="490" y="250" class="small">将“固定状态、局部空间、项目知识、共享经验”编排成一次导览请求</text>
+
+    <rect x="490" y="282" width="560" height="70" rx="22" fill="#FCF4DE" stroke="#E8D7A6"/>
+    <text x="518" y="324" class="layerTitle">1. 用户意图层</text>
+    <text x="790" y="324" class="layerText">输入内容 + mode</text>
+    <rect x="918" y="299" width="108" height="34" rx="17" fill="#F9E9BC"/>
+    <text x="972" y="321" text-anchor="middle" class="chip">每轮固定</text>
+
+    <rect x="490" y="368" width="560" height="70" rx="22" fill="#F5EDF8" stroke="#DFCDE7"/>
+    <text x="518" y="410" class="layerTitle">2. 会话记忆层</text>
+    <text x="790" y="410" class="layerText">短历史窗口 / previous_response_id</text>
+    <rect x="918" y="385" width="108" height="34" rx="17" fill="#F0E4F4"/>
+    <text x="972" y="407" text-anchor="middle" class="chip">增量续接</text>
+
+    <rect x="490" y="454" width="560" height="70" rx="22" fill="#FCF4DE" stroke="#E8D7A6"/>
+    <text x="518" y="496" class="layerTitle">3. 页面场景层</text>
+    <text x="790" y="496" class="layerText">currentView / currentSpotId / visitedSpotIds / activeRouteId</text>
+    <rect x="918" y="471" width="108" height="34" rx="17" fill="#F9E9BC"/>
+    <text x="972" y="493" text-anchor="middle" class="chip">每轮固定</text>
+
+    <rect x="490" y="540" width="560" height="70" rx="22" fill="#EAF4F8" stroke="#CFE0E7"/>
+    <text x="518" y="582" class="layerTitle">4. 空间关系层</text>
+    <text x="790" y="582" class="layerText">当前景点对象、关联景点、当前路线局部结构</text>
+    <rect x="918" y="557" width="108" height="34" rx="17" fill="#DCECF5"/>
+    <text x="972" y="579" text-anchor="middle" class="chip">局部披露</text>
+
+    <rect x="490" y="626" width="560" height="86" rx="22" fill="#EEF3E3" stroke="#D7E0C7"/>
+    <text x="518" y="668" class="layerTitle">5. 导览规则与项目知识层</text>
+    <text x="790" y="660" class="layerText">人格设定、体验规则、路线目录固定提供</text>
+    <text x="790" y="688" class="layerText">景点正文、图像说明、资料切片按需检索后再披露</text>
+    <rect x="918" y="643" width="108" height="34" rx="17" fill="#E3F1E4"/>
+    <text x="972" y="665" text-anchor="middle" class="chip">固定 + 按需</text>
+
+    <rect x="490" y="728" width="560" height="70" rx="22" fill="#F6EEE4" stroke="#E7D7C4"/>
+    <text x="518" y="770" class="layerTitle">6. 公共记忆层</text>
+    <text x="790" y="770" class="layerText">常见疑惑、热点问题、推荐路线、盲点恢复提示</text>
+    <rect x="918" y="745" width="108" height="34" rx="17" fill="#F3E7DA"/>
+    <text x="972" y="767" text-anchor="middle" class="chip">场景筛选</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1140" y="250" width="360" height="220" rx="28" fill="url(#panel)" stroke="#D8E2E5"/>
+    <text x="1180" y="308" class="section">大模型 / 导览后端</text>
+    <text x="1180" y="352" class="layerTitle">场景感知生成</text>
+    <text x="1180" y="388" class="layerText">基于当前位置、游览意图和项目资料</text>
+    <text x="1180" y="418" class="layerText">生成针对性的讲解与导览建议</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1140" y="530" width="360" height="260" rx="28" fill="url(#panel)" stroke="#D8E2E5"/>
+    <text x="1180" y="588" class="section">输出与动作闭环</text>
+    <rect x="1180" y="618" width="280" height="56" rx="18" fill="#FCF4DE"/>
+    <text x="1210" y="653" class="body">讲解内容 + 导览建议</text>
+    <rect x="1180" y="688" width="280" height="80" rx="18" fill="#EAF4F8"/>
+    <text x="1210" y="724" class="body">页面动作接口</text>
+    <text x="1210" y="754" class="mono">open_spot / select_route / go_home</text>
+  </g>
+
+  <path d="M380 480 C414 480 420 480 450 480" stroke="#6A7F88" stroke-width="4" marker-end="url(#arrow)"/>
+  <path d="M1090 500 C1116 500 1118 380 1140 380" stroke="#6A7F88" stroke-width="4" marker-end="url(#arrow)"/>
+  <path d="M1320 470 C1320 502 1320 504 1320 530" stroke="#6A7F88" stroke-width="4" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="450" y="842" width="1050" height="70" rx="22" fill="#FFFFFF" fill-opacity="0.82" stroke="#D8E2E5"/>
+    <text x="490" y="885" class="note">核心策略：不是把整库资料一次性全给模型，而是固定提供状态骨架，再按当前场景与问题检索少量高相关知识块，最后由模型返回讲解与可执行动作。</text>
+  </g>
+</svg>

@@ -19,6 +19,11 @@ import {
 import { OVERVIEW_IMAGE_SIZE } from './overview-layout'
 import { Breadcrumbs, ScrollCue } from './ppt-shell'
 import {
+  createVisitBooking,
+  type PublicUser,
+  type VisitBooking,
+} from './api'
+import {
   GUIDE_LANDING_PROMPT,
   HOTSPOT_HIT_PADDING_MAX,
   HOTSPOT_HIT_PADDING_MIN,
@@ -49,7 +54,9 @@ type GuidePageProps = {
 
 type VisitBookingPageProps = {
   initialRouteId?: string
+  currentUser: PublicUser | null
   onNavigate: (path: string) => void
+  onOpenAccount: () => void
 }
 
 type VisitTimeSlot = {
@@ -58,19 +65,6 @@ type VisitTimeSlot = {
   flow: '舒缓' | '适中' | '较忙'
   note: string
 }
-
-type VisitBookingIntent = {
-  id: string
-  routeId: string
-  visitDate: string
-  timeSlotId: string
-  visitorCount: number
-  contact: string
-  note: string
-  createdAt: string
-}
-
-const VISIT_BOOKING_STORAGE_KEY = 'echoarch.visit-booking-intents'
 
 const visitTimeSlots: VisitTimeSlot[] = [
   {
@@ -154,34 +148,6 @@ function getDefaultVisitDate() {
   const nextDate = new Date()
   nextDate.setDate(nextDate.getDate() + 1)
   return getDateInputValue(nextDate)
-}
-
-function createVisitBookingId() {
-  return `BQ-${Date.now().toString(36).toUpperCase().slice(-5)}`
-}
-
-function readStoredVisitBookings() {
-  try {
-    const raw = window.localStorage.getItem(VISIT_BOOKING_STORAGE_KEY)
-
-    if (!raw) {
-      return []
-    }
-
-    const parsed = JSON.parse(raw)
-
-    return Array.isArray(parsed) ? (parsed as VisitBookingIntent[]) : []
-  } catch {
-    return []
-  }
-}
-
-function storeVisitBooking(intent: VisitBookingIntent) {
-  const current = readStoredVisitBookings()
-  window.localStorage.setItem(
-    VISIT_BOOKING_STORAGE_KEY,
-    JSON.stringify([intent, ...current].slice(0, 8)),
-  )
 }
 
 export function LandingPage({ onNavigate, onOpenGuide }: LandingPageProps) {
@@ -315,9 +281,19 @@ export function LandingPage({ onNavigate, onOpenGuide }: LandingPageProps) {
       </section>
 
       <section className="ea-page-shell ea-section ea-landing__chapters">
-        <div className="ea-section__head">
-          <span>入园路径</span>
-          <h2>从四条线索入园，各自通向不同的观看深处。</h2>
+        <div className="ea-chapter-intro">
+          <div className="ea-section__head">
+            <span>入园路径</span>
+            <h2>先探访，再由导游带路，最后把到访预约收进账号。</h2>
+          </div>
+          <p>
+            游客模式可以直接进入地图、故事和智能导览；需要线下到访时，再登录保存预约与路线续导。
+          </p>
+          <div className="ea-chapter-intro__steps" aria-label="探访流程">
+            <span>探访</span>
+            <span>导游</span>
+            <span>预约</span>
+          </div>
         </div>
 
         <div className="ea-chapter-grid">
@@ -714,7 +690,12 @@ export function GuidePage({ onNavigate }: GuidePageProps) {
   )
 }
 
-export function VisitBookingPage({ initialRouteId, onNavigate }: VisitBookingPageProps) {
+export function VisitBookingPage({
+  initialRouteId,
+  currentUser,
+  onNavigate,
+  onOpenAccount,
+}: VisitBookingPageProps) {
   const [selectedRouteId, setSelectedRouteId] = useState(() => resolveVisitRouteId(initialRouteId))
   const [visitDate, setVisitDate] = useState(() => getDefaultVisitDate())
   const [selectedSlotId, setSelectedSlotId] = useState(() => {
@@ -724,7 +705,9 @@ export function VisitBookingPage({ initialRouteId, onNavigate }: VisitBookingPag
   const [visitorCount, setVisitorCount] = useState(2)
   const [contact, setContact] = useState('')
   const [note, setNote] = useState('')
-  const [submittedIntent, setSubmittedIntent] = useState<VisitBookingIntent | null>(null)
+  const [submittedBooking, setSubmittedBooking] = useState<VisitBooking | null>(null)
+  const [submitMessage, setSubmitMessage] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const selectedRoute = guideRoutes.find((route) => route.id === selectedRouteId) ?? guideRoutes[0]
   const selectedHint = visitRouteHints[selectedRoute?.id ?? ''] ?? visitRouteHints['first-arrival']
@@ -741,29 +724,44 @@ export function VisitBookingPage({ initialRouteId, onNavigate }: VisitBookingPag
   function handleRouteSelect(routeId: string) {
     setSelectedRouteId(routeId)
     setSelectedSlotId(visitRouteHints[routeId]?.recommendedSlotId ?? selectedSlotId)
-    setSubmittedIntent(null)
+    setSubmittedBooking(null)
+    setSubmitMessage('')
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     if (!selectedRoute || !selectedSlot) {
       return
     }
 
-    const intent: VisitBookingIntent = {
-      id: createVisitBookingId(),
-      routeId: selectedRoute.id,
-      visitDate,
-      timeSlotId: selectedSlot.id,
-      visitorCount,
-      contact: contact.trim(),
-      note: note.trim(),
-      createdAt: new Date().toISOString(),
+    if (!currentUser) {
+      setSubmitMessage('预约会保存到账号里，请先登录或注册后再提交。')
+      onOpenAccount()
+      return
     }
 
-    storeVisitBooking(intent)
-    setSubmittedIntent(intent)
+    setIsSubmitting(true)
+    setSubmitMessage('')
+
+    try {
+      const result = await createVisitBooking({
+        routeId: selectedRoute.id,
+        visitDate,
+        timeSlotId: selectedSlot.id,
+        timeSlotLabel: selectedSlot.label,
+        visitorCount,
+        contact: contact.trim(),
+        note: note.trim(),
+      })
+
+      setSubmittedBooking(result.booking)
+      setSubmitMessage('预约意向已提交，后续可在账号面板里查看状态。')
+    } catch (error) {
+      setSubmitMessage(error instanceof Error ? error.message : '预约提交失败，请稍后再试。')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -802,6 +800,21 @@ export function VisitBookingPage({ initialRouteId, onNavigate }: VisitBookingPag
 
       <section className="ea-page-shell ea-visit__layout">
         <form className="ea-panel ea-visit__planner" onSubmit={handleSubmit}>
+          <div className={currentUser ? 'ea-visit-account is-signed' : 'ea-visit-account'}>
+            <div>
+              <span>{currentUser ? '预约账号' : '游客探访'}</span>
+              <strong>{currentUser ? currentUser.displayName : '登录后保存预约与导游续接'}</strong>
+              <p>
+                {currentUser
+                  ? '这次预约会记录到你的账号，之后可在账户面板里查看状态。'
+                  : '可以先浏览和问导游；提交预约时需要登录，方便保存到访信息。'}
+              </p>
+            </div>
+            <button type="button" onClick={onOpenAccount}>
+              {currentUser ? '查看账号' : '登录 / 注册'}
+            </button>
+          </div>
+
           <div className="ea-visit__section-head">
             <span>路线选择</span>
             <h2>先定一条不会迷路的走法</h2>
@@ -831,7 +844,8 @@ export function VisitBookingPage({ initialRouteId, onNavigate }: VisitBookingPag
                 value={visitDate}
                 onChange={(event) => {
                   setVisitDate(event.target.value)
-                  setSubmittedIntent(null)
+                  setSubmittedBooking(null)
+                  setSubmitMessage('')
                 }}
                 required
               />
@@ -846,7 +860,8 @@ export function VisitBookingPage({ initialRouteId, onNavigate }: VisitBookingPag
                 value={visitorCount}
                 onChange={(event) => {
                   setVisitorCount(Number(event.target.value))
-                  setSubmittedIntent(null)
+                  setSubmittedBooking(null)
+                  setSubmitMessage('')
                 }}
                 required
               />
@@ -860,7 +875,8 @@ export function VisitBookingPage({ initialRouteId, onNavigate }: VisitBookingPag
                 placeholder="手机号或微信号"
                 onChange={(event) => {
                   setContact(event.target.value)
-                  setSubmittedIntent(null)
+                  setSubmittedBooking(null)
+                  setSubmitMessage('')
                 }}
                 required
               />
@@ -885,7 +901,8 @@ export function VisitBookingPage({ initialRouteId, onNavigate }: VisitBookingPag
                   .join(' ')}
                 onClick={() => {
                   setSelectedSlotId(slot.id)
-                  setSubmittedIntent(null)
+                  setSubmittedBooking(null)
+                  setSubmitMessage('')
                 }}
               >
                 <strong>{slot.label}</strong>
@@ -903,17 +920,21 @@ export function VisitBookingPage({ initialRouteId, onNavigate }: VisitBookingPag
               placeholder="例如：带老人同行、想重点看碑刻、希望慢一点讲"
               onChange={(event) => {
                 setNote(event.target.value)
-                setSubmittedIntent(null)
+                setSubmittedBooking(null)
+                setSubmitMessage('')
               }}
             />
           </label>
 
           <div className="ea-visit__submit">
-            <button type="submit">提交到访意向</button>
+            <button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? '提交中' : currentUser ? '提交到访意向' : '登录后提交预约'}
+            </button>
             <p>
-              {isRecommendedSlot
+              {submitMessage ||
+              (isRecommendedSlot
                 ? '当前时段与路线分流建议匹配。'
-                : `这条线更推荐 ${visitTimeSlots.find((slot) => slot.id === selectedHint.recommendedSlotId)?.label ?? '较舒缓时段'}，现场会更从容。`}
+                : `这条线更推荐 ${visitTimeSlots.find((slot) => slot.id === selectedHint.recommendedSlotId)?.label ?? '较舒缓时段'}，现场会更从容。`)}
             </p>
           </div>
         </form>
@@ -945,12 +966,13 @@ export function VisitBookingPage({ initialRouteId, onNavigate }: VisitBookingPag
             <p>{selectedHint.wayfinding}</p>
           </section>
 
-          {submittedIntent ? (
+          {submittedBooking ? (
             <section className="ea-visit-confirm">
               <span>预约意向已记录</span>
-              <strong>{submittedIntent.id}</strong>
+              <strong>{submittedBooking.bookingNo}</strong>
               <p>
-                {submittedIntent.visitDate}，{selectedSlot?.label}，{visitorCount} 人。
+                {submittedBooking.visitDate}，{submittedBooking.timeSlotLabel}，
+                {submittedBooking.visitorCount} 人。
                 到园后可先打开智能导览，按「{selectedRoute?.title}」继续走。
               </p>
               <button

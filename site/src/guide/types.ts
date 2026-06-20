@@ -1,6 +1,7 @@
 import type { HeritageSpot } from '../types'
 
 export type GuideMode = 'welcome' | 'story' | 'route' | 'image' | 'ask'
+export type GuideInputType = 'text' | 'voice' | 'image' | 'mixed'
 
 export type GuideRoutePreset = {
   id: string
@@ -23,6 +24,31 @@ export type GuideAction =
       type: 'select_route'
       routeId: string
     }
+  | {
+      type: 'open_booking'
+      routeId?: string
+    }
+  | {
+      type: 'focus_hotspot'
+      spotId: string
+    }
+  | {
+      type: 'open_image_panel'
+      spotId?: string
+    }
+  | {
+      type: 'play_tts'
+    }
+  | {
+      type: 'highlight_route_segment'
+      routeId: string
+    }
+
+export type GuideVisualGrounding = {
+  label: string
+  bbox?: number[]
+  point?: number[]
+}
 
 export type GuideMessage = {
   id: string
@@ -33,11 +59,22 @@ export type GuideMessage = {
   suggestedPrompts?: string[]
   suggestedSpotIds?: string[]
   actions?: GuideAction[]
+  audioUrl?: string | null
+  visualGrounding?: GuideVisualGrounding[]
 }
 
 export type GuideRequest = {
   sessionId: string
   input: string
+  inputType?: GuideInputType
+  mediaRefs?: string[]
+  clientCapabilities?: {
+    voiceInput: boolean
+    imageInput: boolean
+    tts: boolean
+  }
+  userId?: string | null
+  sessionSummary?: string | null
   mode: GuideMode
   currentView: 'home' | 'detail'
   currentSpotId: string | null

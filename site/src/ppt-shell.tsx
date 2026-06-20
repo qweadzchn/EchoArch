@@ -1,4 +1,5 @@
 import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import type { PublicUser } from './api'
 import { headerNavItems, type AppRoute, type NavKey } from './ppt-router'
 
 export type BreadcrumbItem = {
@@ -9,8 +10,10 @@ export type BreadcrumbItem = {
 type SiteHeaderProps = {
   activeNav: NavKey
   route: AppRoute
+  user: PublicUser | null
   visitedCount: number
   onNavigate: (path: string) => void
+  onOpenAccount: () => void
   onOpenGuide: () => void
 }
 
@@ -34,8 +37,10 @@ type ScrollCueProps = {
 export function SiteHeader({
   activeNav,
   route,
+  user,
   visitedCount,
   onNavigate,
+  onOpenAccount,
   onOpenGuide,
 }: SiteHeaderProps) {
   const activeNavItem = headerNavItems.find((item) => item.id === activeNav)
@@ -71,6 +76,15 @@ export function SiteHeader({
         </nav>
 
         <div className="ea-header__side">
+          <button
+            type="button"
+            className={user ? 'ea-header__account is-signed' : 'ea-header__account'}
+            onClick={onOpenAccount}
+          >
+            <span>{user ? '已登录' : '游客模式'}</span>
+            <strong>{user ? user.displayName : '登录预约'}</strong>
+          </button>
+
           <button
             type="button"
             className="ea-header__guide"

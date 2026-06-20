@@ -4,11 +4,17 @@ import {
   useMemo,
   useRef,
   useState,
+  type ChangeEvent,
   type CSSProperties,
   type FormEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import type { HeritageSpot } from '../types'
+import {
+  requestGuideTts,
+  uploadGuideAudio,
+  uploadGuideImage,
+} from '../api'
 import {
   createGuideSessionId,
   preloadGuideRuntimeConfig,
@@ -24,6 +30,7 @@ import {
 import { GUIDE_OPEN_EVENT, type GuideOpenEventDetail } from './events'
 import type {
   GuideAction,
+  GuideInputType,
   GuideMessage,
   GuideMode,
   GuideRoutePreset,
@@ -46,6 +53,8 @@ type WhisperNote = {
 
 type SendGuideOptions = {
   addUserMessage?: boolean
+  inputType?: GuideInputType
+  mediaRefs?: string[]
   nextActiveRouteId?: string | null
 }
 
@@ -90,7 +99,7 @@ type DragGesture = {
   moved: boolean
 }
 
-type GuideNavigationAction = Exclude<GuideAction, { type: 'select_route' }>
+type GuideNavigationAction = Extract<GuideAction, { type: 'open_spot' | 'go_home' }>
 
 const GUIDE_STORAGE_KEY = 'echoarch.guide-anchor'
 const GUIDE_TOGGLE_WIDTH = 252
@@ -543,6 +552,9 @@ export function GuideCompanion({
   const [isArchiveOpen, setIsArchiveOpen] = useState(false)
   const [activeRouteId, setActiveRouteId] = useState<string | null>(null)
   const [whisper, setWhisper] = useState<WhisperNote | null>(null)
+  const [mediaNotice, setMediaNotice] = useState('')
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false)
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false)
   const [anchorPosition, setAnchorPosition] = useState(initialAnchorRef.current)
   const [hasCustomAnchor, setHasCustomAnchor] = useState(() => readStoredGuideAnchor() !== null)
   const [isCompactViewport, setIsCompactViewport] = useState(
@@ -550,6 +562,9 @@ export function GuideCompanion({
   )
   const [isDragging, setIsDragging] = useState(false)
   const sheetScrollRef = useRef<HTMLDivElement | null>(null)
+  const imageInputRef = useRef<HTMLInputElement | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const voiceChunksRef = useRef<Blob[]>([])
   const viewKeyRef = useRef<string | null>(null)
   const narratedSceneRef = useRef<string | null>(null)
   const dragGestureRef = useRef<DragGesture | null>(null)
@@ -977,6 +992,13 @@ export function GuideCompanion({
       const response = await requestGuideReply({
         sessionId,
         input: prompt,
+        inputType: options?.inputType ?? 'text',
+        mediaRefs: options?.mediaRefs ?? [],
+        clientCapabilities: {
+          voiceInput: Boolean(navigator.mediaDevices?.getUserMedia),
+          imageInput: true,
+          tts: 'speechSynthesis' in window,
+        },
         mode,
         currentView,
         currentSpotId: currentSpot?.id ?? null,
@@ -1069,6 +1091,144 @@ export function GuideCompanion({
     void sendGuideRequest(nextInput, 'ask')
   }
 
+  async function handleImageFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.currentTarget.value = ''
+
+    if (!file) {
+      return
+    }
+
+    setIsUploadingMedia(true)
+    setMediaNotice('正在把图像递给导游。')
+
+    try {
+      const result = await uploadGuideImage(file)
+      const prompt = [
+        currentSpot ? `请结合我上传的图片和当前 ${currentSpot.name} 的资料，像现场导游一样帮我看图。` : '请结合我上传的图片和百泉总览资料，帮我判断图中值得先看的位置。',
+        result.analysis ? `图像预分析：${result.analysis}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n')
+
+      setMediaNotice('图像已接收，导游正在看图。')
+      await sendGuideRequest(prompt, 'image', {
+        inputType: 'image',
+        mediaRefs: [result.mediaId],
+      })
+    } catch (error) {
+      setMediaNotice(error instanceof Error ? error.message : '图像上传失败。')
+    } finally {
+      setIsUploadingMedia(false)
+    }
+  }
+
+  async function stopVoiceRecording() {
+    const recorder = mediaRecorderRef.current
+
+    if (!recorder || recorder.state === 'inactive') {
+      setIsRecordingVoice(false)
+      return
+    }
+
+    recorder.stop()
+  }
+
+  async function startVoiceRecording() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMediaNotice('当前浏览器不支持录音，请直接输入文字。')
+      return
+    }
+
+    setMediaNotice('正在听你说，完成后再点一次。')
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      voiceChunksRef.current = []
+      mediaRecorderRef.current = recorder
+
+      recorder.addEventListener('dataavailable', (event) => {
+        if (event.data.size > 0) {
+          voiceChunksRef.current.push(event.data)
+        }
+      })
+
+      recorder.addEventListener('stop', () => {
+        stream.getTracks().forEach((track) => track.stop())
+        setIsRecordingVoice(false)
+        const blob = new Blob(voiceChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+
+        if (blob.size === 0) {
+          setMediaNotice('没有录到声音，请再试一次。')
+          return
+        }
+
+        setIsUploadingMedia(true)
+        uploadGuideAudio(blob)
+          .then(async (result) => {
+            const prompt = result.text || '请根据我的语音继续导览。'
+            setMediaNotice('语音已接收，导游正在整理。')
+            await sendGuideRequest(prompt, 'ask', {
+              inputType: 'voice',
+              mediaRefs: [result.mediaId],
+            })
+          })
+          .catch((error: unknown) => {
+            setMediaNotice(error instanceof Error ? error.message : '语音处理失败。')
+          })
+          .finally(() => {
+            setIsUploadingMedia(false)
+          })
+      })
+
+      recorder.start()
+      setIsRecordingVoice(true)
+    } catch {
+      setMediaNotice('没有拿到麦克风权限，请直接输入文字。')
+      setIsRecordingVoice(false)
+    }
+  }
+
+  function handleVoiceButtonClick() {
+    if (isRecordingVoice) {
+      void stopVoiceRecording()
+      return
+    }
+
+    void startVoiceRecording()
+  }
+
+  async function handleSpeakLatestGuideMessage() {
+    const text = latestGuideMessage?.content.trim()
+
+    if (!text) {
+      setMediaNotice('还没有可朗读的导游讲解。')
+      return
+    }
+
+    try {
+      const tts = await requestGuideTts(text)
+
+      if (tts.audioUrl) {
+        const audio = new Audio(tts.audioUrl)
+        await audio.play()
+        return
+      }
+
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel()
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(text))
+        setMediaNotice('已使用浏览器语音朗读。')
+        return
+      }
+
+      setMediaNotice('当前浏览器不支持朗读。')
+    } catch (error) {
+      setMediaNotice(error instanceof Error ? error.message : '朗读失败。')
+    }
+  }
+
   function handleRouteSelect(route: GuideRoutePreset) {
     if (isPending) {
       return
@@ -1132,6 +1292,13 @@ export function GuideCompanion({
       ) : null}
 
       <aside className="guide-dock">
+        <input
+          ref={imageInputRef}
+          className="guide-media__file"
+          type="file"
+          accept="image/*"
+          onChange={(event) => void handleImageFileChange(event)}
+        />
         <div className="guide-dock__lead">
           <section
             className="guide-stage"
@@ -1360,6 +1527,35 @@ export function GuideCompanion({
                 ))}
               </div>
             </div>
+
+            <div className="guide-media">
+              <button
+                type="button"
+                disabled={isPending || isUploadingMedia}
+                onClick={() => imageInputRef.current?.click()}
+              >
+                <span>图像</span>
+                <strong>上传图片</strong>
+              </button>
+              <button
+                type="button"
+                disabled={isPending || isUploadingMedia}
+                onClick={handleVoiceButtonClick}
+              >
+                <span>{isRecordingVoice ? '录音中' : '语音'}</span>
+                <strong>{isRecordingVoice ? '结束录音' : '语音提问'}</strong>
+              </button>
+              <button
+                type="button"
+                disabled={!latestGuideMessage || isPending}
+                onClick={() => void handleSpeakLatestGuideMessage()}
+              >
+                <span>朗读</span>
+                <strong>播放讲解</strong>
+              </button>
+            </div>
+
+            {mediaNotice ? <p className="guide-media__notice">{mediaNotice}</p> : null}
 
             {navigationActions.length > 0 ? (
               <section className="guide-wayfinder">

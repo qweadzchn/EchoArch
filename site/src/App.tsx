@@ -18,6 +18,8 @@ import {
 import { GuidePage, LandingPage, OverviewPage, VisitBookingPage } from './ppt-entry-pages'
 import { ScrollCue, SiteHeader } from './ppt-shell'
 import { StoryDetailPage, StoryHubPage } from './ppt-story-pages'
+import { AuthPanel } from './AuthPanel'
+import { getCurrentUser, type PublicUser } from './api'
 import {
   GUIDE_LANDING_PROMPT,
   academyById,
@@ -195,6 +197,8 @@ function App() {
   const [route, setRoute] = useState<AppRoute>(() => readRouteFromHash())
   const [isMusicEnabled, setIsMusicEnabled] = useState(() => readStoredMusicPreference())
   const [isMusicPlaying, setIsMusicPlaying] = useState(false)
+  const [currentUser, setCurrentUser] = useState<PublicUser | null>(null)
+  const [isAuthPanelOpen, setIsAuthPanelOpen] = useState(false)
   const [visitedSpotIds, setVisitedSpotIds] = useState<string[]>(() => {
     const initialRoute = readRouteFromHash()
     return initialRoute.page === 'spot' ? [initialRoute.spotId] : []
@@ -215,6 +219,22 @@ function App() {
         : steleCategories[0]?.id ?? ''
     },
   )
+
+  useEffect(() => {
+    let cancelled = false
+
+    getCurrentUser()
+      .then((result) => {
+        if (!cancelled) {
+          setCurrentUser(result.user)
+        }
+      })
+      .catch(() => undefined)
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     function syncRouteFromHash() {
@@ -420,7 +440,9 @@ function App() {
         <VisitBookingPage
           key={route.routeId ?? 'visit'}
           initialRouteId={route.routeId}
+          currentUser={currentUser}
           onNavigate={navigateTo}
+          onOpenAccount={() => setIsAuthPanelOpen(true)}
         />
       )
       break
@@ -528,8 +550,10 @@ function App() {
         <SiteHeader
           activeNav={getActiveNav(route)}
           route={route}
+          user={currentUser}
           visitedCount={visitedSpotIds.length}
           onNavigate={navigateTo}
+          onOpenAccount={() => setIsAuthPanelOpen(true)}
           onOpenGuide={() => openGuide(GUIDE_LANDING_PROMPT)}
         />
       ) : null}
@@ -546,6 +570,13 @@ function App() {
           onGoHome={() => navigateTo('/overview')}
         />
       </Suspense>
+
+      <AuthPanel
+        isOpen={isAuthPanelOpen}
+        user={currentUser}
+        onClose={() => setIsAuthPanelOpen(false)}
+        onUserChange={setCurrentUser}
+      />
 
       <button
         type="button"

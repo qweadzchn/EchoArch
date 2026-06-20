@@ -10,11 +10,11 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       proxy: {
-        '/api/guide': {
+        '/api': {
           target: guideTarget,
           changeOrigin: true,
         },
-        '/api/guide/health': {
+        '/uploads': {
           target: guideTarget,
           changeOrigin: true,
         },

@@ -1,8 +1,8 @@
 :root {
   --ea-header-height: 76px;
   --ea-content-width: min(calc(100% - 64px), 1480px);
-  --ea-radius-xl: 34px;
-  --ea-radius-lg: 26px;
+  --ea-radius-xl: 18px;
+  --ea-radius-lg: 12px;
 }
 
 .ea-app-shell {
@@ -37,9 +37,7 @@
 .ea-related,
 .ea-pager button {
   border: 1px solid rgba(94, 68, 36, 0.12);
-  background:
-    linear-gradient(180deg, rgba(255, 251, 244, 0.94), rgba(243, 231, 209, 0.84)),
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.72), transparent 40%);
+  background: linear-gradient(180deg, rgba(255, 251, 244, 0.94), rgba(244, 233, 214, 0.88));
   box-shadow: var(--shadow-museum);
   backdrop-filter: blur(18px);
 }
@@ -59,19 +57,18 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 999px;
+  border-radius: 18px;
   border: 1px solid rgba(255, 242, 216, 0.18);
-  background:
-    linear-gradient(180deg, rgba(32, 24, 16, 0.72), rgba(32, 24, 16, 0.46)),
-    radial-gradient(circle at top, rgba(255, 245, 224, 0.12), transparent 40%);
+  background: linear-gradient(180deg, rgba(32, 24, 16, 0.76), rgba(32, 24, 16, 0.58));
   box-shadow:
-    0 20px 48px rgba(18, 13, 9, 0.24),
+    0 16px 38px rgba(18, 13, 9, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(18px);
 }
 
 .ea-header__brand,
 .ea-header__nav button,
+.ea-header__account,
 .ea-header__guide,
 .ea-actions button,
 .ea-crumbs button,
@@ -112,7 +109,7 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border-radius: 999px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 241, 213, 0.08);
   background: rgba(255, 250, 240, 0.04);
   color: rgba(255, 243, 222, 0.8);
@@ -179,7 +176,7 @@
 .ea-header:hover .ea-header__side,
 .ea-header:focus-within .ea-header__nav,
 .ea-header:focus-within .ea-header__side {
-  max-width: 1100px;
+  max-width: 1180px;
   opacity: 1;
   transform: translateX(0);
   visibility: visible;
@@ -190,8 +187,8 @@
 .ea-header__nav button,
 .ea-header__guide {
   border: 1px solid rgba(255, 241, 213, 0.12);
-  border-radius: 999px;
-  padding: 10px 16px;
+  border-radius: 12px;
+  padding: 10px 12px;
   color: rgba(255, 243, 222, 0.84);
   background: rgba(255, 250, 240, 0.04);
   font-size: 0.94rem;
@@ -207,11 +204,13 @@
 
 .ea-header__nav button:hover,
 .ea-header__nav button:focus-visible,
+.ea-header__account:hover,
+.ea-header__account:focus-visible,
 .ea-header__guide:hover,
 .ea-header__guide:focus-visible,
 .ea-header__brand:hover,
 .ea-header__brand:focus-visible {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .ea-header__side {
@@ -231,7 +230,7 @@
 .ea-header__status {
   min-width: 110px;
   padding: 9px 13px;
-  border-radius: 999px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 241, 213, 0.1);
   display: flex;
   flex-direction: column;
@@ -365,7 +364,7 @@
 .ea-guide-route button,
 .ea-pager button.is-center {
   border: 1px solid rgba(174, 131, 70, 0.18);
-  border-radius: 999px;
+  border-radius: 12px;
   padding: 12px 18px;
 }
 
@@ -373,10 +372,9 @@
 .ea-culture-tabs button.is-active,
 .ea-pager button.is-center {
   color: #f8f1e5;
-  background:
-    linear-gradient(180deg, rgba(166, 120, 62, 0.94), rgba(126, 82, 37, 0.88));
+  background: linear-gradient(180deg, rgba(150, 103, 52, 0.96), rgba(103, 70, 36, 0.94));
   box-shadow:
-    0 16px 30px rgba(76, 46, 19, 0.22),
+    0 10px 22px rgba(76, 46, 19, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
@@ -386,8 +384,7 @@
 .ea-guide-route button.is-secondary,
 .ea-pager button:not(.is-center) {
   color: var(--ink-deep);
-  background:
-    linear-gradient(180deg, rgba(255, 248, 237, 0.94), rgba(235, 221, 192, 0.86));
+  background: linear-gradient(180deg, rgba(255, 250, 242, 0.96), rgba(241, 229, 207, 0.9));
 }
 
 .ea-actions button.is-ghost {
@@ -416,10 +413,10 @@
 .ea-related:focus-visible,
 .ea-pager button:hover,
 .ea-pager button:focus-visible {
-  transform: translateY(-3px);
+  transform: translateY(-1px);
   border-color: rgba(184, 137, 78, 0.34);
   box-shadow:
-    0 20px 40px rgba(63, 40, 19, 0.18),
+    0 12px 28px rgba(63, 40, 19, 0.13),
     inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
@@ -471,7 +468,7 @@
 .ea-pager button {
   min-height: 84px;
   padding: 16px 18px;
-  border-radius: 22px;
+  border-radius: 12px;
   display: grid;
   gap: 6px;
   text-align: left;
@@ -505,7 +502,7 @@
     display: grid;
     gap: 12px;
     padding: 14px;
-    border-radius: 28px;
+    border-radius: 16px;
   }
 
   .ea-header__peek {
@@ -546,7 +543,7 @@
     display: grid;
     gap: 12px;
     padding: 14px;
-    border-radius: 28px;
+    border-radius: 16px;
   }
 
   .ea-header__peek {
@@ -585,13 +582,52 @@
   }
 
   .ea-route {
-    padding-top: 182px;
+    padding-top: 174px;
+  }
+
+  .ea-header__rail {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .ea-header__nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0;
+    scrollbar-width: none;
+  }
+
+  .ea-header__nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ea-header__nav button {
+    flex: 0 0 auto;
+    padding: 9px 10px;
+    font-size: 0.88rem;
+  }
+
+  .ea-header__side {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .ea-header__account,
+  .ea-header__guide {
+    min-height: 40px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .ea-header__status {
+    display: none;
   }
 
   .ea-banner {
     min-height: 360px;
     padding: 24px 20px;
-    border-radius: 28px;
+    border-radius: 16px;
   }
 
   .ea-banner__copy h1 {

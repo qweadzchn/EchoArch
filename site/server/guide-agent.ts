@@ -1,14 +1,27 @@
 import cors from 'cors'
+import cookieParser from 'cookie-parser'
 import dotenv from 'dotenv'
 import express from 'express'
 import OpenAI from 'openai'
 import { readFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
+import { createAuthRouter, getAuthenticatedUser, optionalAuth } from './auth-routes.ts'
+import { createAdminBookingRouter, createBookingRouter } from './booking-routes.ts'
 import { buildRetrievedMaterialText } from './guide-retrieval.ts'
+import { createMediaRouter, getUploadDirectory } from './media-routes.ts'
 import { buildPublicMemoryPromptText } from './public-memory.ts'
+import {
+  createGuideMessage,
+  createPublicMemoryEvent,
+  createRecordId,
+  listMediaUploads,
+  upsertGuideSession,
+} from './storage.ts'
 import { heritageSpots } from '../src/data/heritage-data.ts'
 import type { GuideAction, GuideRequest, GuideResponse, GuideRoutePreset } from '../src/guide/types.ts'
 import type { HeritageSpot } from '../src/types.ts'
+import type { PublicUser } from './system-types.ts'
 
 dotenv.config({
   path: '.env.guide',
@@ -21,6 +34,7 @@ const GUIDE_ALLOWED_ORIGINS = GUIDE_ALLOWED_ORIGIN.split(',')
   .filter(Boolean)
 const GUIDE_SERVER_TOKEN = process.env.GUIDE_SERVER_TOKEN?.trim() ?? ''
 const GUIDE_USE_CONVERSATION_STATE = process.env.GUIDE_USE_CONVERSATION_STATE !== 'false'
+const GUIDE_SERVE_STATIC = process.env.GUIDE_SERVE_STATIC === 'true'
 const GUIDE_API_STYLE = process.env.GUIDE_API_STYLE?.trim().toLowerCase() ?? 'auto'
 const GUIDE_DEEPSEEK_THINKING =
   process.env.GUIDE_DEEPSEEK_THINKING?.trim().toLowerCase() ?? 'disabled'
@@ -30,6 +44,8 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY?.trim() ?? ''
 
 const GUIDE_SESSION_TTL_MS = 1000 * 60 * 45
 const GUIDE_CHAT_HISTORY_LIMIT = 12
+const STATIC_DIST_DIR = fileURLToPath(new URL('../dist/', import.meta.url))
+const STATIC_INDEX_FILE = fileURLToPath(new URL('../dist/index.html', import.meta.url))
 
 const guideModeSchema = z.enum(['welcome', 'story', 'route', 'image', 'ask'])
 
@@ -37,6 +53,9 @@ const rawGuideActionSchema = z.object({
   type: z.string().default(''),
   spotId: z.string().optional(),
   routeId: z.string().optional(),
+  bookingRouteId: z.string().optional(),
+  targetId: z.string().optional(),
+  sectionId: z.string().optional(),
 })
 
 const guideReplySchema = z.object({
@@ -46,11 +65,36 @@ const guideReplySchema = z.object({
   suggestedPrompts: z.array(z.string()).default([]),
   suggestedSpotIds: z.array(z.string()).default([]),
   actions: z.array(rawGuideActionSchema).default([]),
+  audioUrl: z.string().nullable().optional(),
+  visualGrounding: z
+    .array(
+      z.object({
+        label: z.string(),
+        bbox: z.array(z.number()).optional(),
+        point: z.array(z.number()).optional(),
+      }),
+    )
+    .default([]),
 })
 
 const guideRequestSchema = z.object({
   sessionId: z.string().min(1),
   input: z.string().min(1),
+  inputType: z.enum(['text', 'voice', 'image', 'mixed']).default('text'),
+  mediaRefs: z.array(z.string()).default([]),
+  clientCapabilities: z
+    .object({
+      voiceInput: z.boolean().default(false),
+      imageInput: z.boolean().default(false),
+      tts: z.boolean().default(false),
+    })
+    .default({
+      voiceInput: false,
+      imageInput: false,
+      tts: false,
+    }),
+  userId: z.string().nullable().optional(),
+  sessionSummary: z.string().max(1200).nullable().optional(),
   mode: guideModeSchema,
   currentView: z.enum(['home', 'detail']),
   currentSpotId: z.string().nullable(),
@@ -513,13 +557,36 @@ function inferExplicitGuideActions(request: GuideRequest): GuideAction[] {
   return actions.slice(0, 3)
 }
 
-function buildGuideInput(request: GuideRequest) {
+async function buildMediaContextText(request: GuideRequest) {
+  if (!request.mediaRefs?.length) {
+    return 'No media input was attached.'
+  }
+
+  const mediaUploads = await listMediaUploads(request.mediaRefs)
+
+  if (!mediaUploads.length) {
+    return `Media refs were provided but no stored uploads matched: ${request.mediaRefs.join(', ')}`
+  }
+
+  return mediaUploads
+    .map((media, index) => {
+      return [
+        `[Media ${index + 1}] id=${media.id} | kind=${media.kind} | name=${media.originalName}`,
+        `url=${media.url}`,
+        `analysis=${clipText(media.analysis ?? 'No analysis was generated for this media.', 320)}`,
+      ].join('\n')
+    })
+    .join('\n\n')
+}
+
+async function buildGuideInput(request: GuideRequest) {
   const currentSpot = getCurrentSpot(request)
   const relatedSpots = getRelatedSpots(request, currentSpot)
   const currentRoute = request.guideBundle.routeCatalog.find(
     (route) => route.id === request.activeRouteId,
   )
   const sharedMemorySection = buildPublicMemoryPromptText(request)
+  const mediaContextText = await buildMediaContextText(request)
 
   const currentSpotSection = currentSpot
     ? [
@@ -545,9 +612,12 @@ function buildGuideInput(request: GuideRequest) {
     `【界面状态】`,
     `currentView=${request.currentView}`,
     `mode=${request.mode}`,
+    `inputType=${request.inputType ?? 'text'}`,
     `currentSpotId=${request.currentSpotId ?? 'none'}`,
     `visitedSpotIds=${request.visitedSpotIds.join(',') || 'none'}`,
     `activeRouteId=${request.activeRouteId ?? 'none'}`,
+    `clientCapabilities=${JSON.stringify(request.clientCapabilities ?? {})}`,
+    `sessionSummary=${clipText(request.sessionSummary ?? '', 260) || 'none'}`,
     ``,
     `【当前建筑上下文】`,
     currentSpotSection,
@@ -566,6 +636,9 @@ function buildGuideInput(request: GuideRequest) {
     ``,
     `【Shared visit memory】`,
     sharedMemorySection,
+    ``,
+    `【多模态输入】`,
+    mediaContextText,
     ``,
     `【全站建筑索引】`,
     buildSpotCatalogText(),
@@ -605,14 +678,15 @@ function buildGuideInstructions(promptBundle: PromptBundle) {
 function buildGuideOutputContract() {
   return [
     'Return exactly one JSON object with fields:',
-    'mode,title,content,suggestedPrompts,suggestedSpotIds,actions',
+    'mode,title,content,suggestedPrompts,suggestedSpotIds,actions,audioUrl,visualGrounding',
     'Do not output Markdown.',
     'If no actions are needed, return an empty actions array.',
+    'If no audio or visual grounding is available, return audioUrl as null and visualGrounding as an empty array.',
   ].join('\n')
 }
 
-function buildGuideUserPrompt(request: GuideRequest) {
-  return [buildGuideInput(request), '', buildGuideOutputContract()].join('\n')
+async function buildGuideUserPrompt(request: GuideRequest) {
+  return [await buildGuideInput(request), '', buildGuideOutputContract()].join('\n')
 }
 
 function getSessionState(sessionId: string) {
@@ -693,6 +767,49 @@ function sanitizeActions(
     if (action.type === 'go_home') {
       normalized.push({
         type: 'go_home',
+      })
+      continue
+    }
+
+    if (action.type === 'open_booking') {
+      normalized.push({
+        type: 'open_booking',
+        routeId: action.routeId,
+      })
+      continue
+    }
+
+    if (action.type === 'focus_hotspot' && action.spotId && validSpotIds.has(action.spotId)) {
+      normalized.push({
+        type: 'focus_hotspot',
+        spotId: action.spotId,
+      })
+      continue
+    }
+
+    if (action.type === 'open_image_panel') {
+      normalized.push({
+        type: 'open_image_panel',
+        spotId: action.spotId && validSpotIds.has(action.spotId) ? action.spotId : undefined,
+      })
+      continue
+    }
+
+    if (action.type === 'play_tts') {
+      normalized.push({
+        type: 'play_tts',
+      })
+      continue
+    }
+
+    if (action.type === 'highlight_route_segment' && action.routeId) {
+      if (!validRouteIds.has(action.routeId)) {
+        continue
+      }
+
+      normalized.push({
+        type: 'highlight_route_segment',
+        routeId: action.routeId,
       })
     }
   }
@@ -788,8 +905,64 @@ function sanitizeReply(
         .filter((spotId) => validSpotIds.has(spotId))
         .slice(0, 4),
       actions: normalizedActions,
+      audioUrl: modelReply.audioUrl ?? null,
+      visualGrounding: modelReply.visualGrounding.slice(0, 8),
     },
   }
+}
+
+async function persistGuideTurn(
+  request: GuideRequest,
+  guideResponse: GuideResponse,
+  user: PublicUser | null,
+) {
+  const now = new Date().toISOString()
+
+  await upsertGuideSession({
+    id: request.sessionId,
+    userId: user?.id ?? request.userId ?? null,
+    anonymousId: user ? null : request.sessionId,
+    summary: request.sessionSummary ?? null,
+    currentRouteId: request.activeRouteId ?? null,
+    visitedSpotIds: request.visitedSpotIds,
+    createdAt: now,
+    updatedAt: now,
+  })
+
+  await createGuideMessage({
+    id: createRecordId('gmsg'),
+    sessionId: request.sessionId,
+    role: 'user',
+    mode: request.mode,
+    content: request.input,
+    mediaRefs: request.mediaRefs ?? [],
+    createdAt: now,
+  })
+
+  await createGuideMessage({
+    id: guideResponse.reply.id,
+    sessionId: request.sessionId,
+    role: 'guide',
+    mode: guideResponse.reply.mode,
+    content: guideResponse.reply.content,
+    mediaRefs: [],
+    createdAt: new Date().toISOString(),
+  })
+
+  await createPublicMemoryEvent({
+    id: createRecordId('pme'),
+    sessionId: request.sessionId,
+    userId: user?.id ?? null,
+    eventType: `guide:${request.inputType ?? 'text'}`,
+    sceneId: `${request.currentView}:${request.currentSpotId ?? 'overview'}`,
+    payload: {
+      mode: request.mode,
+      activeRouteId: request.activeRouteId ?? null,
+      mediaRefs: request.mediaRefs ?? [],
+      actions: guideResponse.reply.actions ?? [],
+    },
+    createdAt: new Date().toISOString(),
+  })
 }
 
 async function generateGuideReplyLegacy(request: GuideRequest): Promise<GuideResponse> {
@@ -814,12 +987,13 @@ async function generateGuideReplyLegacy(request: GuideRequest): Promise<GuideRes
       promptBundle.experienceRules.trim(),
     ].join('\n'),
     input: [
-      buildGuideInput(request),
+      await buildGuideInput(request),
       '',
       'Return exactly one JSON object with fields:',
-      'mode,title,content,suggestedPrompts,suggestedSpotIds,actions',
+      'mode,title,content,suggestedPrompts,suggestedSpotIds,actions,audioUrl,visualGrounding',
       'Do not output Markdown.',
       'If no actions are needed, return an empty actions array.',
+      'If no audio or visual grounding is available, return audioUrl as null and visualGrounding as an empty array.',
     ].join('\n'),
   })
 
@@ -846,7 +1020,7 @@ async function generateGuideReply(request: GuideRequest): Promise<GuideResponse>
   const promptBundle = await resolvePromptBundle(request)
   const sessionState = getSessionState(request.sessionId)
   const instructions = buildGuideInstructions(promptBundle)
-  const userPrompt = buildGuideUserPrompt(request)
+  const userPrompt = await buildGuideUserPrompt(request)
 
   async function requestByResponsesApi() {
     return generateGuideReplyLegacy(request)
@@ -906,6 +1080,7 @@ const app = express()
 
 app.use(
   cors({
+    credentials: true,
     origin(origin, callback) {
       if (isAllowedOrigin(origin)) {
         callback(null, true)
@@ -917,7 +1092,13 @@ app.use(
   }),
 )
 
+app.use(cookieParser())
 app.use(express.json({ limit: '1mb' }))
+app.use('/uploads', express.static(getUploadDirectory()))
+app.use('/api/auth', createAuthRouter())
+app.use('/api/bookings', createBookingRouter())
+app.use('/api/admin', createAdminBookingRouter())
+app.use('/api/media', createMediaRouter())
 
 app.get('/api/guide/health', (_request, response) => {
   response.json({
@@ -931,7 +1112,7 @@ app.get('/api/guide/health', (_request, response) => {
   })
 })
 
-app.post('/api/guide', async (request, response) => {
+app.post('/api/guide', optionalAuth, async (request, response) => {
   if (GUIDE_SERVER_TOKEN) {
     const authorization = request.header('authorization')
 
@@ -955,6 +1136,11 @@ app.post('/api/guide', async (request, response) => {
 
   try {
     const guideResponse = await generateGuideReply(parsedRequest.data as GuideRequest)
+    await persistGuideTurn(
+      parsedRequest.data as GuideRequest,
+      guideResponse,
+      getAuthenticatedUser(response),
+    )
     response.json(guideResponse)
   } catch (error) {
     console.error('[guide-api] request failed', error)
@@ -966,6 +1152,13 @@ app.post('/api/guide', async (request, response) => {
     })
   }
 })
+
+if (GUIDE_SERVE_STATIC) {
+  app.use(express.static(STATIC_DIST_DIR))
+  app.get(/^(?!\/api\/|\/uploads\/).*/u, (_request, response) => {
+    response.sendFile(STATIC_INDEX_FILE)
+  })
+}
 
 app.use((error: unknown, _request: express.Request, response: express.Response, next: express.NextFunction) => {
   if (error instanceof SyntaxError) {
