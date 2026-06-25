@@ -10,6 +10,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import type { HeritageSpot } from '../types'
+import type { SpatialGuideContext } from '../world/types'
 import {
   requestGuideTts,
   uploadGuideAudio,
@@ -39,6 +40,7 @@ import type {
 type GuideCompanionProps = {
   currentSpot: HeritageSpot | null
   currentView: 'home' | 'detail'
+  spatialContext: SpatialGuideContext | null
   visitedSpotIds: string[]
   allSpots: HeritageSpot[]
   onOpenSpot: (spotId: string) => void
@@ -531,6 +533,7 @@ function buildGuideEncounterPrompts(
 export function GuideCompanion({
   currentSpot,
   currentView,
+  spatialContext,
   visitedSpotIds,
   allSpots,
   onOpenSpot,
@@ -1003,6 +1006,7 @@ export function GuideCompanion({
         currentView,
         currentSpotId: currentSpot?.id ?? null,
         visitedSpotIds,
+        spatialContext,
         activeRouteId: nextActiveRouteId,
         currentSpot,
         relatedSpots,

@@ -99,6 +99,17 @@ const guideRequestSchema = z.object({
   currentView: z.enum(['home', 'detail']),
   currentSpotId: z.string().nullable(),
   visitedSpotIds: z.array(z.string()),
+  spatialContext: z
+    .object({
+      enabled: z.literal(true),
+      scene: z.enum(['overview', 'detail']),
+      navigationMode: z.enum(['orbit', 'walk']),
+      focusedSpotId: z.string().nullable(),
+      hotspotId: z.string().nullable(),
+      hotspotLabel: z.string().nullable(),
+    })
+    .nullable()
+    .optional(),
   activeRouteId: z.string().nullable().optional(),
   currentSpot: z.unknown().nullable().optional(),
   relatedSpots: z.array(z.unknown()).optional(),
@@ -615,6 +626,7 @@ async function buildGuideInput(request: GuideRequest) {
     `inputType=${request.inputType ?? 'text'}`,
     `currentSpotId=${request.currentSpotId ?? 'none'}`,
     `visitedSpotIds=${request.visitedSpotIds.join(',') || 'none'}`,
+    `spatialContext=${JSON.stringify(request.spatialContext ?? null)}`,
     `activeRouteId=${request.activeRouteId ?? 'none'}`,
     `clientCapabilities=${JSON.stringify(request.clientCapabilities ?? {})}`,
     `sessionSummary=${clipText(request.sessionSummary ?? '', 260) || 'none'}`,

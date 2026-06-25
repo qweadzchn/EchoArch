@@ -14,21 +14,26 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
+    "check:world": "tsx scripts/validate-world.ts",
     "sync:content": "node scripts/build-heritage-data.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^1.21.0",
     "multer": "^2.2.0",
     "openai": "^6.4.0",
     "prisma": "^6.19.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "three": "^0.184.0",
     "zod": "^4.1.11"
   },
   "devDependencies": {

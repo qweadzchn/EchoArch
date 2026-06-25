@@ -1,4 +1,5 @@
 import type { HeritageSpot } from '../types'
+import type { SpatialGuideContext } from '../world/types'
 
 export type GuideMode = 'welcome' | 'story' | 'route' | 'image' | 'ask'
 export type GuideInputType = 'text' | 'voice' | 'image' | 'mixed'
@@ -79,6 +80,7 @@ export type GuideRequest = {
   currentView: 'home' | 'detail'
   currentSpotId: string | null
   visitedSpotIds: string[]
+  spatialContext?: SpatialGuideContext | null
   activeRouteId?: string | null
   currentSpot?: HeritageSpot | null
   relatedSpots?: HeritageSpot[]

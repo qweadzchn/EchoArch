@@ -1,4 +1,6 @@
 import {
+  Suspense,
+  lazy,
   useEffect,
   useRef,
   useState,
@@ -35,6 +37,14 @@ import {
   spotById,
   spotsWithLayout,
 } from './ppt-router'
+import { SpatialModeSwitch } from './world/SpatialModeSwitch'
+import type { SpatialGuideContext, SpatialViewMode } from './world/types'
+
+const WorldExperience = lazy(() =>
+  import('./world/WorldExperience').then((module) => ({
+    default: module.WorldExperience,
+  })),
+)
 
 type LandingPageProps = {
   onNavigate: (path: string) => void
@@ -43,9 +53,12 @@ type LandingPageProps = {
 
 type OverviewPageProps = {
   visitedSpotIds: string[]
+  spatialMode: SpatialViewMode
   onNavigate: (path: string) => void
   onOpenGuide: (prompt?: string) => void
   onOpenSpot: (spotId: string) => void
+  onSpatialModeChange: (mode: SpatialViewMode) => void
+  onSpatialContextChange: (context: SpatialGuideContext) => void
 }
 
 type GuidePageProps = {
@@ -324,9 +337,12 @@ export function LandingPage({ onNavigate, onOpenGuide }: LandingPageProps) {
 
 export function OverviewPage({
   visitedSpotIds,
+  spatialMode,
   onNavigate,
   onOpenGuide,
   onOpenSpot,
+  onSpatialModeChange,
+  onSpatialContextChange,
 }: OverviewPageProps) {
   const stageRef = useRef<HTMLDivElement | null>(null)
   const [displayFrame, setDisplayFrame] = useState(() =>
@@ -399,19 +415,36 @@ export function OverviewPage({
   )
 
   return (
-    <div className="ea-route ea-overview">
+    <div className={`ea-route ea-overview ${spatialMode === '3d' ? 'is-spatial' : ''}`}>
       <section className="ea-overview__scene">
-        <OverviewStage
-          activeSpotId={activeSpotId}
-          displayFrame={displayFrame}
-          hotspotHitPadding={hotspotHitPadding}
-          isOverviewReady={isOverviewReady}
-          onClearActiveSpot={() => setActiveSpotId('')}
-          onOpenSpot={onOpenSpot}
-          onSetActiveSpot={setActiveSpotId}
-          stageRef={stageRef}
-          visitedSpotIds={visitedSpotIds}
+        <SpatialModeSwitch
+          className="ea-spatial-switch--overview"
+          value={spatialMode}
+          onChange={onSpatialModeChange}
         />
+
+        {spatialMode === '3d' ? (
+          <Suspense fallback={<div className="ea-world-module-loading" aria-label="正在加载三维场景" />}>
+            <WorldExperience
+              currentSpotId={null}
+              variant="overview"
+              onOpenSpot={onOpenSpot}
+              onContextChange={onSpatialContextChange}
+            />
+          </Suspense>
+        ) : (
+          <OverviewStage
+            activeSpotId={activeSpotId}
+            displayFrame={displayFrame}
+            hotspotHitPadding={hotspotHitPadding}
+            isOverviewReady={isOverviewReady}
+            onClearActiveSpot={() => setActiveSpotId('')}
+            onOpenSpot={onOpenSpot}
+            onSetActiveSpot={setActiveSpotId}
+            stageRef={stageRef}
+            visitedSpotIds={visitedSpotIds}
+          />
+        )}
 
         <div className="ea-overview__overlay">
           <div className="ea-page-shell ea-overview__topline">

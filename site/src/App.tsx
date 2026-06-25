@@ -48,10 +48,18 @@ import {
   type HotspotLayout,
 } from './overview-layout'
 import type { HeritageSpot } from './types'
+import { SpatialModeSwitch } from './world/SpatialModeSwitch'
+import type { SpatialGuideContext, SpatialViewMode } from './world/types'
 
 const GuideCompanion = lazy(() =>
   import('./guide/GuideCompanion').then((module) => ({
     default: module.GuideCompanion,
+  })),
+)
+
+const WorldExperience = lazy(() =>
+  import('./world/WorldExperience').then((module) => ({
+    default: module.WorldExperience,
   })),
 )
 
@@ -84,6 +92,7 @@ const HOTSPOT_HIT_PADDING_MIN = 14
 const HOTSPOT_HIT_PADDING_MAX = 26
 const OVERVIEW_IMAGE_SRC = '/landing/overview.jpg'
 const MUSIC_STORAGE_KEY = 'echoarch.music.enabled'
+const SPATIAL_MODE_STORAGE_KEY = 'echoarch.spatial.mode'
 const MUSIC_SOURCE = '/audio/zhulangxing.mp3'
 const HOME_SECTION_LINKS = [
   { id: 'intro-section', label: '钟灵百泉' },
@@ -97,6 +106,14 @@ function readStoredMusicPreference() {
   }
 
   return window.localStorage.getItem(MUSIC_STORAGE_KEY) === 'true'
+}
+
+function readStoredSpatialMode(): SpatialViewMode {
+  if (typeof window === 'undefined') {
+    return '2d'
+  }
+
+  return window.localStorage.getItem(SPATIAL_MODE_STORAGE_KEY) === '3d' ? '3d' : '2d'
 }
 
 function getMusicVolume(page: AppRoute['page']) {
@@ -196,6 +213,8 @@ function App() {
   const resumeMusicWhenVisibleRef = useRef(false)
   const [route, setRoute] = useState<AppRoute>(() => readRouteFromHash())
   const [isMusicEnabled, setIsMusicEnabled] = useState(() => readStoredMusicPreference())
+  const [spatialMode, setSpatialMode] = useState<SpatialViewMode>(() => readStoredSpatialMode())
+  const [spatialContext, setSpatialContext] = useState<SpatialGuideContext | null>(null)
   const [isMusicPlaying, setIsMusicPlaying] = useState(false)
   const [currentUser, setCurrentUser] = useState<PublicUser | null>(null)
   const [isAuthPanelOpen, setIsAuthPanelOpen] = useState(false)
@@ -281,6 +300,10 @@ function App() {
   }, [isMusicEnabled])
 
   useEffect(() => {
+    window.localStorage.setItem(SPATIAL_MODE_STORAGE_KEY, spatialMode)
+  }, [spatialMode])
+
+  useEffect(() => {
     const audio = audioRef.current
 
     if (!audio) {
@@ -356,6 +379,15 @@ function App() {
     route.page === 'spot'
       ? spotsWithLayout.find((spot) => spot.id === route.spotId) ?? null
       : null
+  const spatialFocusedSpot =
+    spatialMode === '3d' && spatialContext?.focusedSpotId
+      ? spotsWithLayout.find((spot) => spot.id === spatialContext.focusedSpotId) ?? null
+      : null
+  const guideCurrentSpot = spatialFocusedSpot ?? currentSpot
+  const activeSpatialContext =
+    spatialMode === '3d' && (route.page === 'overview' || route.page === 'spot')
+      ? spatialContext
+      : null
 
   function navigateTo(path: string) {
     const nextHash = `#${path}`
@@ -426,9 +458,12 @@ function App() {
       page = (
         <OverviewPage
           visitedSpotIds={visitedSpotIds}
+          spatialMode={spatialMode}
           onNavigate={navigateTo}
           onOpenGuide={openGuide}
           onOpenSpot={openSpotById}
+          onSpatialModeChange={setSpatialMode}
+          onSpatialContextChange={setSpatialContext}
         />
       )
       break
@@ -528,13 +563,19 @@ function App() {
           onBack={() => navigateTo('/overview')}
           onOpenSpot={openSpot}
           spot={currentSpot}
+          spatialMode={spatialMode}
+          onSpatialModeChange={setSpatialMode}
+          onSpatialContextChange={setSpatialContext}
         />
       ) : (
         <OverviewPage
           visitedSpotIds={visitedSpotIds}
+          spatialMode={spatialMode}
           onNavigate={navigateTo}
           onOpenGuide={openGuide}
           onOpenSpot={openSpotById}
+          onSpatialModeChange={setSpatialMode}
+          onSpatialContextChange={setSpatialContext}
         />
       )
       break
@@ -562,8 +603,9 @@ function App() {
 
       <Suspense fallback={null}>
         <GuideCompanion
-          currentSpot={currentSpot}
+          currentSpot={guideCurrentSpot}
           currentView={route.page === 'spot' ? 'detail' : 'home'}
+          spatialContext={activeSpatialContext}
           visitedSpotIds={visitedSpotIds}
           allSpots={spotsWithLayout}
           onOpenSpot={openSpotById}
@@ -1454,9 +1496,19 @@ type DetailViewProps = {
   onBack: () => void
   onOpenSpot: (spot: SpotWithLayout) => void
   spot: SpotWithLayout
+  spatialMode: SpatialViewMode
+  onSpatialModeChange: (mode: SpatialViewMode) => void
+  onSpatialContextChange: (context: SpatialGuideContext) => void
 }
 
-function DetailView({ onBack, onOpenSpot, spot }: DetailViewProps) {
+function DetailView({
+  onBack,
+  onOpenSpot,
+  spot,
+  spatialMode,
+  onSpatialModeChange,
+  onSpatialContextChange,
+}: DetailViewProps) {
   const [activeGallery, setActiveGallery] = useState({
     spotId: spot.id,
     index: 0,
@@ -1478,19 +1530,40 @@ function DetailView({ onBack, onOpenSpot, spot }: DetailViewProps) {
   const nextSpot = spotsWithLayout.at((spotIndex + 1) % spotsWithLayout.length)
   const nextRecommendedSpot = relatedSpots[0] ?? nextSpot ?? null
 
+  function openWorldSpot(spotId: string) {
+    const nextWorldSpot = spotsWithLayout.find((candidate) => candidate.id === spotId)
+
+    if (nextWorldSpot) {
+      onOpenSpot(nextWorldSpot)
+    }
+  }
+
   return (
     <div className="spot-article ea-route ea-chapter fade-rise">
-      <section className="ea-chapter-hero spot-article__hero">
-        <div className="ea-chapter-hero__media">
-          <img
-            src={featureImage?.src}
-            alt={featureImage?.alt ?? spot.name}
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
-          />
-        </div>
-        <div className="ea-chapter-hero__veil spot-article__veil" />
+      <section className={`ea-chapter-hero spot-article__hero ${spatialMode === '3d' ? 'is-spatial' : ''}`}>
+        {spatialMode === '3d' ? (
+          <Suspense fallback={<div className="ea-world-module-loading" aria-label="正在加载三维场景" />}>
+            <WorldExperience
+              currentSpotId={spot.id}
+              variant="detail"
+              onOpenSpot={openWorldSpot}
+              onContextChange={onSpatialContextChange}
+            />
+          </Suspense>
+        ) : (
+          <>
+            <div className="ea-chapter-hero__media">
+              <img
+                src={featureImage?.src}
+                alt={featureImage?.alt ?? spot.name}
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
+              />
+            </div>
+            <div className="ea-chapter-hero__veil spot-article__veil" />
+          </>
+        )}
 
         <div className="ea-page-shell ea-chapter-hero__inner">
           <header className="spot-article__topbar">
@@ -1499,6 +1572,7 @@ function DetailView({ onBack, onOpenSpot, spot }: DetailViewProps) {
             </button>
 
             <div className="spot-article__meta">
+              <SpatialModeSwitch value={spatialMode} onChange={onSpatialModeChange} />
               <span>{spot.region}</span>
               <strong>
                 {String(spot.order).padStart(2, '0')} / {spotsWithLayout.length}
@@ -1556,7 +1630,7 @@ function DetailView({ onBack, onOpenSpot, spot }: DetailViewProps) {
           </div>
         </div>
 
-        <ScrollCue label="继续入景" />
+        <ScrollCue label={spatialMode === '3d' ? '查看图文档案' : '继续入景'} />
       </section>
 
       <section className="ea-page-shell ea-chapter-frame spot-article__frame">
